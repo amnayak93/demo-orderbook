@@ -8,19 +8,38 @@ import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 
-import com.cs.Orderbook.Entity.OrderEntity;;
+import lombok.Data;;
 
+@Data
 @Entity
 public class OrderbookEntity {
 
 	@Id
 	private String financialId;
-	private String status;
-	@OneToMany(mappedBy = "financialId", cascade = CascadeType.ALL)
+	private Status status;
+	@OneToMany(mappedBy = "orderBook", cascade = CascadeType.ALL)
 	private List<OrderEntity> orders;
+	@OneToMany(mappedBy = "orderBook", cascade = CascadeType.ALL)
+	private List<ExecutionEntity> executions;
 	private BigInteger validOrders;
 	private BigInteger totExecutionOrders;
-	private boolean firstExecutionFlag = true;
+	private boolean firstExecutionFlag = true;	
+	
+	
+	public OrderbookEntity() {
+		super();
+	}
+
+	public OrderbookEntity(String financialId, Status status, List<OrderEntity> orders, BigInteger validOrders,
+			BigInteger totExecutionOrders, boolean firstExecutionFlag, List<ExecutionEntity> executions) {
+		this.financialId = financialId;
+		this.status = status;
+		this.orders = orders;
+		this.validOrders = validOrders;
+		this.totExecutionOrders = totExecutionOrders;
+		this.firstExecutionFlag = firstExecutionFlag;
+		this.executions = executions;
+	}
 
 	public String getFinancialId() {
 		return financialId;
@@ -30,11 +49,11 @@ public class OrderbookEntity {
 		this.financialId = financialId;
 	}
 
-	public String getStatus() {
+	public Status getStatus() {
 		return status;
 	}
 
-	public void setStatus(String status) {
+	public void setStatus(Status status) {
 		this.status = status;
 	}
 
