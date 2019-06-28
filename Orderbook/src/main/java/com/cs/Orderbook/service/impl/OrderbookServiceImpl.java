@@ -73,7 +73,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	@Override
 	public void executeOrders(ExecutionEntity execution, BigDecimal executionPrice) {
-		String instrument = execution.getOrderBook().getFinancialId();
+		String instrument = execution.getOrderBook().getInstrument();
 		if (!checkIfOrderbookExists(instrument))
 			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + instrument);
 		if (!checkIfOrderbookIsClosed(instrument))
@@ -162,7 +162,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private void getFirstAndLastEntryOfOrder(OrderbookEntity record) {
-		String id = record.getFinancialId();
+		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getEntryDate().compareTo(o2.getEntryDate()));
 		logger.info("First Entry Date for OrderEntity book " + id + " is " + orders.get(0)
@@ -170,7 +170,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private void getBiggestAndSmallestOrder(OrderbookEntity record) {
-		String id = record.getFinancialId();
+		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getQuantiy().intValue() - o2.getQuantiy().intValue());
 		logger.info("Biggest OrderEntity for OrderEntity book " + id + " is : " + orders.get(orders.size() - 1)
@@ -178,7 +178,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private void printNumberOfOrdersInEachBook(OrderbookEntity record) {
-		String id = record.getFinancialId();
+		String id = record.getInstrument();
 		BigInteger totOrders = BigInteger
 				.valueOf(record.getOrders().stream().mapToInt(x -> x.getQuantiy().intValue()).sum());
 		logger.info("For OrderEntity Book " + id + " number of orders is " + record.getOrders().size());

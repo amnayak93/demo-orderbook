@@ -80,16 +80,16 @@ public class OrderbookApplicationTests {
 
 		orders2.addAll(orders3);
 
-		orderbook1 = new OrderbookEntity("Fi1", Status.CLOSE, orders, BigInteger.valueOf(0), BigInteger.valueOf(0),
-				true, executions);
-		orderbook2 = new OrderbookEntity("Fi2", Status.OPEN, orders2, BigInteger.valueOf(0), BigInteger.valueOf(0),
-				true, executions);
-		orderbook3 = new OrderbookEntity("Fi3", Status.EXECUTE, orders4, BigInteger.valueOf(0), BigInteger.valueOf(0),
-				true, executions);
+		orderbook1 = new OrderbookEntity("Fi1", Status.CLOSE, orders, executions, BigInteger.valueOf(0),
+				BigInteger.valueOf(0), true);
+		orderbook2 = new OrderbookEntity("Fi2", Status.OPEN, orders2, executions, BigInteger.valueOf(0),
+				BigInteger.valueOf(0), true);
+		orderbook3 = new OrderbookEntity("Fi3", Status.EXECUTE, orders4, executions, BigInteger.valueOf(0),
+				BigInteger.valueOf(0), true);
 
-		when(orderbookRepository.findById(orderbook1.getFinancialId())).thenReturn(Optional.of(orderbook1));
-		when(orderbookRepository.findById(orderbook2.getFinancialId())).thenReturn(Optional.of(orderbook2));
-		when(orderbookRepository.findById(orderbook3.getFinancialId())).thenReturn(Optional.of(orderbook3));
+		when(orderbookRepository.findById(orderbook1.getInstrument())).thenReturn(Optional.of(orderbook1));
+		when(orderbookRepository.findById(orderbook2.getInstrument())).thenReturn(Optional.of(orderbook2));
+		when(orderbookRepository.findById(orderbook3.getInstrument())).thenReturn(Optional.of(orderbook3));
 	}
 
 	/*
@@ -129,7 +129,7 @@ public class OrderbookApplicationTests {
 		OrderbookEntity orderbook = orderbookService.openOrderbook(instrument);
 		assertNotNull(orderbook);
 		assertEquals(orderbook, orderbook1);
-		assertEquals(orderbook.getFinancialId(), instrument);
+		assertEquals(orderbook.getInstrument(), instrument);
 		assertEquals(orderbook.getStatus(), Status.CLOSE);
 		assertEquals(orderbook.getOrders(), orders);
 		assertEquals(orderbook.getTotExecutionOrders(), BigInteger.valueOf(0));
@@ -142,7 +142,7 @@ public class OrderbookApplicationTests {
 		OrderbookEntity orderbook = orderbookService.addOrders(orders3, instrument);
 		assertNotNull(orderbook);
 		assertEquals(orderbook, orderbook2);
-		assertEquals(orderbook.getFinancialId(), instrument);
+		assertEquals(orderbook.getInstrument(), instrument);
 		assertEquals(orderbook.getStatus(), Status.OPEN);
 		assertEquals(orderbook.getOrders(), orders2);
 		assertEquals(orderbook.getTotExecutionOrders(), BigInteger.valueOf(0));

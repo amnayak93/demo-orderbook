@@ -15,7 +15,7 @@ import lombok.Data;;
 public class OrderbookEntity {
 
 	@Id
-	private String financialId;
+	private String instrument;
 	private Status status;
 	@OneToMany(mappedBy = "orderBook", cascade = CascadeType.ALL)
 	private List<OrderEntity> orders;
@@ -23,30 +23,30 @@ public class OrderbookEntity {
 	private List<ExecutionEntity> executions;
 	private BigInteger validOrders;
 	private BigInteger totExecutionOrders;
-	private boolean firstExecutionFlag = true;	
-	
-	
+	private boolean firstExecutionFlag = true;
+
 	public OrderbookEntity() {
 		super();
 	}
 
-	public OrderbookEntity(String financialId, Status status, List<OrderEntity> orders, BigInteger validOrders,
-			BigInteger totExecutionOrders, boolean firstExecutionFlag, List<ExecutionEntity> executions) {
-		this.financialId = financialId;
+	public OrderbookEntity(String instrument, Status status, List<OrderEntity> orders, List<ExecutionEntity> executions,
+			BigInteger validOrders, BigInteger totExecutionOrders, boolean firstExecutionFlag) {
+		super();
+		this.instrument = instrument;
 		this.status = status;
 		this.orders = orders;
+		this.executions = executions;
 		this.validOrders = validOrders;
 		this.totExecutionOrders = totExecutionOrders;
 		this.firstExecutionFlag = firstExecutionFlag;
-		this.executions = executions;
 	}
 
-	public String getFinancialId() {
-		return financialId;
+	public String getInstrument() {
+		return instrument;
 	}
 
-	public void setFinancialId(String financialId) {
-		this.financialId = financialId;
+	public void setInstrument(String instrument) {
+		this.instrument = instrument;
 	}
 
 	public Status getStatus() {
@@ -65,12 +65,12 @@ public class OrderbookEntity {
 		this.orders = orders;
 	}
 
-	public boolean isFirstExecutionFlag() {
-		return firstExecutionFlag;
+	public List<ExecutionEntity> getExecutions() {
+		return executions;
 	}
 
-	public void setFirstExecutionFlag(boolean firstExecutionFlag) {
-		this.firstExecutionFlag = firstExecutionFlag;
+	public void setExecutions(List<ExecutionEntity> executions) {
+		this.executions = executions;
 	}
 
 	public BigInteger getValidOrders() {
@@ -87,6 +87,14 @@ public class OrderbookEntity {
 
 	public void setTotExecutionOrders(BigInteger totExecutionOrders) {
 		this.totExecutionOrders = totExecutionOrders;
+	}
+
+	public boolean isFirstExecutionFlag() {
+		return firstExecutionFlag;
+	}
+
+	public void setFirstExecutionFlag(boolean firstExecutionFlag) {
+		this.firstExecutionFlag = firstExecutionFlag;
 	}
 
 }

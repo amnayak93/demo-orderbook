@@ -15,7 +15,7 @@ import javax.persistence.ManyToOne;
 public class OrderEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
-	private long id;
+	private long orderId;
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn
 	private OrderbookEntity orderBook;
@@ -32,7 +32,7 @@ public class OrderEntity {
 	public OrderEntity(long id, OrderbookEntity orderBook, BigDecimal quantiy, LocalDateTime entryDate,
 			BigDecimal price, String orderType) {
 		super();
-		this.id = id;
+		this.orderId = id;
 		this.orderBook = orderBook;
 		this.quantiy = quantiy;
 		this.entryDate = entryDate;
