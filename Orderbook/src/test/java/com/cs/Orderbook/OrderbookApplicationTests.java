@@ -38,8 +38,6 @@ import com.cs.Orderbook.service.impl.OrderbookServiceImpl;
 @DataJpaTest
 public class OrderbookApplicationTests {
 
-	// @InjectMocks
-	// OrderbookService orderbookService = new OrderbookServiceImpl();
 	@TestConfiguration
 	static class OrderbookApplicationTestConfiguration {
 		@Bean
