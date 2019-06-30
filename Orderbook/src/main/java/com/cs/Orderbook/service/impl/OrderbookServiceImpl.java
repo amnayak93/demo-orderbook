@@ -1,9 +1,9 @@
 package com.cs.Orderbook.service.impl;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -12,11 +12,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.cs.Orderbook.Entity.ExecutionEntity;
 import com.cs.Orderbook.Entity.OrderEntity;
+import com.cs.Orderbook.Entity.OrderStatus;
 import com.cs.Orderbook.Entity.OrderbookEntity;
 import com.cs.Orderbook.Entity.Status;
+import com.cs.Orderbook.Exception.ExecutionPriceShouldNotChangeException;
+import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandException;
+import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
+import com.cs.Orderbook.Exception.MarketOrderHasLimitPriceException;
+import com.cs.Orderbook.Exception.OrderbookFoundException;
+import com.cs.Orderbook.Exception.OrderbookIsAlreadyExecutedException;
 import com.cs.Orderbook.Exception.OrderbookIsClosedException;
-import com.cs.Orderbook.Exception.OrderbookIsNotClosedException;
-import com.cs.Orderbook.Exception.OrderbookIsNotOpenException;
+import com.cs.Orderbook.Exception.OrderbookIsExecutedException;
+import com.cs.Orderbook.Exception.OrderbookIsOpenException;
 import com.cs.Orderbook.Exception.OrderbookNotFoundException;
 import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
@@ -29,120 +36,143 @@ public class OrderbookServiceImpl implements OrderbookService {
 	@Autowired
 	OrderbookRepository orderbookRepository;
 
-
 	@Override
 	public OrderbookEntity openOrderbook(String id) {
+		OrderbookEntity orderbookEntity = new OrderbookEntity();
 		boolean ifOrderbookExists = checkIfOrderbookExists(id);
-		if (!ifOrderbookExists)
-			throw new OrderbookNotFoundException("The are no orderbooks for financial instrument id " + id);
-		boolean ifOrderbookIsClosed = checkIfOrderbookIsClosed(id);
-		if (!ifOrderbookIsClosed)
-			throw new OrderbookIsNotClosedException(
-					"The order book for financial instrument id " + id + " is either already open or executed");
-		return orderbookRepository.findById(id).get();
+		if (ifOrderbookExists) {
+			orderbookEntity = orderbookRepository.findbyInstrument(id).get();
+			throw new OrderbookFoundException("The orderbook for financial instrument id " + id
+					+ " already exists with status as " + orderbookEntity.getStatus() + ". Cannot open the orderbook");
+		}
+		orderbookEntity.setInstrument(id);
+		orderbookEntity.setStatus(Status.OPEN);
+		return orderbookRepository.save(orderbookEntity);
 	}
 
 	@Override
 	public OrderbookEntity closeOrderbook(String id) {
-		boolean ifOrderbookExists = checkIfOrderbookExists(id);
-		if (!ifOrderbookExists)
+		OrderbookEntity orderbookEntity = new OrderbookEntity();
+		if (!checkIfOrderbookExists(id))
 			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + id);
-		boolean ifOrderbookIsOpen = checkIfOrderbookIsOpen(id);
-		if (!ifOrderbookIsOpen)
-			throw new OrderbookIsNotOpenException(
-					"The order book for financial instrument id " + id + " is not open. So it cannot be closed");
-		return orderbookRepository.findById(id).get();
+		if (checkIfOrderbookIsClosed(id))
+			throw new OrderbookIsClosedException(
+					"The order book for financial instrument id " + id + " is already closed. So it cannot be closed");
+		if (checkIfOrderbookIsExecuted(id))
+			throw new OrderbookIsExecutedException(
+					"The order book for financial instrument id " + id + " is executed. So it cannot be closed");
+		if (checkIfOrderbookIsOpen(id)) {
+			orderbookEntity = orderbookRepository.findbyInstrument(id).get();
+			orderbookEntity.setStatus(Status.CLOSE);
+		}
+		return orderbookRepository.save(orderbookEntity);
 	}
 
 	@Override
 	public OrderbookEntity addOrders(List<OrderEntity> orders, String fid) {
 		if (!checkIfOrderbookExists(fid))
-			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + fid);
+			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + fid
+					+ ". Please open it first before adding orders");
 		if (checkIfOrderbookIsClosed(fid))
 			throw new OrderbookIsClosedException(
 					"The order book for financial instrument id " + fid + " is closed. So orders cannot be added");
-		if(!checkIfOrderbookIsOpen(fid))
-			throw new OrderbookIsNotOpenException("The order book for financial instrument id " + fid + " is not open. So orders cannot be added");
-		OrderbookEntity orderbookEntity = orderbookRepository.findById(fid).get();
+		if (checkIfOrderbookIsExecuted(fid))
+			throw new OrderbookIsExecutedException(
+					"The order book for financial instrument id " + fid + " is executed cannot add orders");
+		OrderbookEntity orderbookEntity = orderbookRepository.findbyInstrument(fid).get();
 		List<OrderEntity> ordersToBeAdded = orderbookEntity.getOrders();
-		ordersToBeAdded.addAll(orders);
+		orders.forEach(x -> {
+			if (checkIfMarketOrder(x) && checkIfMarketOrderHasLimitPrice(x))
+				throw new MarketOrderHasLimitPriceException("The order with order id " + x.getOrderId()
+						+ " cannot be added to the orderbook with instrument id " + fid
+						+ " because it is a market order but has a limit price");
+			else if (checkIfLimitOrder(x) && !checkIfLimitOrderHasLimitPrice(x))
+				throw new LimitOrderDoesNotHaveLimitPriceException("The order with order id " + x.getOrderId()
+						+ " cannot be added to the orderbook with instrument id " + fid
+						+ " because it is a limit order but does not have a limit price");
+		});
 		orderbookEntity.setOrders(ordersToBeAdded);
-		orderbookRepository.save(orderbookEntity);
-		return orderbookEntity;
+		return orderbookRepository.save(orderbookEntity);
 	}
 
 	@Override
-	public void executeOrders(ExecutionEntity execution, BigDecimal executionPrice) {
-		String instrument = execution.getOrderBook().getInstrument();
+	public OrderbookEntity executeOrders(ExecutionEntity execution, String fid) {
+		String instrument = fid;
+		List<ExecutionEntity> executions = new ArrayList<>();
 		if (!checkIfOrderbookExists(instrument))
-			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + instrument);
-		if (!checkIfOrderbookIsClosed(instrument))
-			throw new OrderbookIsNotClosedException(
-					"The order book for financial instrument id " + instrument + " is not closed. Executions cannot be added");
-		OrderbookEntity orderBook = orderbookRepository.findById(instrument).get();
-		if (orderBook.isFirstExecutionFlag()) {
-			orderBook = determineValidOrders(execution, orderBook);
-		}
-		orderBook = linearDistributionAmongVaildOrders(orderBook, execution);
-		orderBook.setTotExecutionOrders(orderBook.getTotExecutionOrders().add(execution.getExecutionQuantity().toBigInteger()));
-		if (orderBook.getTotExecutionOrders().compareTo(orderBook.getValidOrders()) == 0)
-			orderBook.setStatus(Status.EXECUTE);
-		orderbookRepository.save(orderBook);
-	}
+			throw new OrderbookNotFoundException(
+					"There are no orderbooks for financial instrument id " + instrument + " cannot add executions");
+		if (checkIfOrderbookIsOpen(instrument))
+			throw new OrderbookIsOpenException("The orderbook for financial instrument id " + instrument
+					+ " is open. The orderbook has to be closed to add executions");
+		if (checkIfOrderbookIsExecuted(instrument))
+			throw new OrderbookIsAlreadyExecutedException("The orderbook for financial instrument id " + instrument
+					+ " is already executed . Cannot accept new executions");
 
-	private OrderbookEntity linearDistributionAmongVaildOrders(OrderbookEntity orderBook, ExecutionEntity execution) {
-		List<OrderEntity> orderList = orderBook.getOrders();
-		Long orderQuantity = orderList.stream().mapToLong(x -> x.getQuantiy().longValue()).sum();
-		List<Integer> ratioList = orderList.stream().map(record -> record.getQuantiy()
-				.divide(BigDecimal.valueOf(orderQuantity)).multiply(BigDecimal.valueOf(orderList.size())).ROUND_HALF_UP)
-				.collect(Collectors.toList());
-		Integer ratioSum = ratioList.stream().collect(Collectors.summingInt(Integer::intValue));
-		List<OrderEntity> newOrderList = new ArrayList<>();
-		for (int i = 0; i < orderList.size(); i++) {
-			OrderEntity order = orderList.get(i);
-			order.setQuantiy(BigDecimal.valueOf(order.getQuantiy().add(execution.getExecutionQuantity().divide(
-					BigDecimal.valueOf(ratioSum).multiply(BigDecimal.valueOf(ratioList.get(i))))).ROUND_HALF_UP));
-			newOrderList.add(order);
+		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(instrument).get();
+		if (orderBook.getExecutions() == null) {
+			orderBook = determineValidOrders(execution, orderBook);
+		} else {
+			executions = orderBook.getExecutions();
+			if (execution.getExecutionPrice().compareTo(orderBook.getExecutions().get(0).getExecutionPrice()) != 0)
+				throw new ExecutionPriceShouldNotChangeException(
+						"The Execution Price is not equal to the initial execution price of the orderbook with instrument id "
+								+ instrument + " this execution cannot be executed. ");
+			if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
+					.reduce(BigInteger.ZERO, BigInteger::add).add(execution.getExecutionQuantity())
+					.longValue() > orderBook.getOrders().stream()
+							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).count())
+				throw new ExecutionQuantityIsMoreThanTheValidDemandException(
+						"The execution cannot be executed because it is more than the valid demand for the orderbook with intrument id "
+								+ instrument);
+			executions.add(execution);
+			orderBook.setExecutions(executions);
 		}
-		orderBook.setOrders(newOrderList);
-		return orderBook;
+		linearDistributionAmongVaildOrders(orderBook, execution);
+		if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
+				.reduce(BigInteger.ZERO, BigInteger::add).longValue() == orderBook.getOrders().stream()
+						.filter(x -> x.getStatus().equals(OrderStatus.VALID)).count())
+			orderBook.setStatus(Status.EXECUTE);
+		return orderbookRepository.save(orderBook);
 	}
 
 	private OrderbookEntity determineValidOrders(ExecutionEntity execution, OrderbookEntity orderbookEntity) {
-		List<OrderEntity> validOrders = orderbookEntity.getOrders().stream()
-				.filter(record -> StaticUtils.MARKET.equalsIgnoreCase(record.getOrderType()))
-				.collect(Collectors.toList());
-		List<OrderEntity> limitOrders = orderbookEntity.getOrders().stream()
-				.filter(record -> StaticUtils.LIMIT.equalsIgnoreCase(record.getOrderType()))
-				.collect(Collectors.toList());
-		validOrders.addAll(limitOrders.stream().filter(record -> {
+		List<ExecutionEntity> executions = new ArrayList<>();
+		executions.add(execution);
+		List<OrderEntity> orders = orderbookEntity.getOrders();
+		orders.stream().filter(record -> StaticUtils.MARKET.equalsIgnoreCase(record.getOrderType()))
+				.forEach(record -> record.setStatus(OrderStatus.VALID));
+		orders.stream().filter(record -> StaticUtils.LIMIT.equalsIgnoreCase(record.getOrderType())).forEach(record -> {
 			if (record.getPrice().compareTo(execution.getExecutionPrice()) != -1)
-				return true;
+				record.setStatus(OrderStatus.VALID);
 			else
-				return false;
-		}).collect(Collectors.toList()));
-		orderbookEntity.setOrders(validOrders);
-		orderbookEntity.setValidOrders(BigInteger.valueOf(validOrders.size()));
-		orderbookEntity.setFirstExecutionFlag(false);
+				record.setStatus(OrderStatus.INVALID);
+		});
+		orderbookEntity.setExecutions(executions);
 		return orderbookEntity;
 	}
 
-	private boolean checkIfOrderbookIsOpen(String id) {
-		if (orderbookRepository.findById(id).get().getStatus() == Status.OPEN)
-			return true;
-		else
-			return false;
+	private void linearDistributionAmongVaildOrders(OrderbookEntity orderBook, ExecutionEntity execution) {
+		List<OrderEntity> orderList = orderBook.getOrders().stream().filter(x -> x.getStatus().equals(OrderStatus.VALID)).collect(Collectors.toList());
+		BigInteger gcd = findGcdOfOrderQuantities(orderList);
+		List<BigInteger> ratioList = calculateRatioList(orderList, gcd);
+		BigInteger ratioSum = ratioList.stream().reduce(BigInteger::add).get();
+		for (int i = 0; i < orderList.size(); i++) {
+			orderList.get(i)
+					.setExecutionQuantity(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
+		}
 	}
 
-	private boolean checkIfOrderbookIsClosed(String id) {
-		if (orderbookRepository.findById(id).get().getStatus() == Status.CLOSE)
-			return true;
-		else
-			return false;
+	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
+		BigInteger result = orderList.get(0).getQuantiy();
+		for (int i = 1; i < orderList.size(); i++) {
+			result = orderList.get(i).getQuantiy().gcd(result);
+		}
+		return result;
 	}
 
-	private boolean checkIfOrderbookExists(String id) {
-		return orderbookRepository.findById(id).isPresent();
+	private List<BigInteger> calculateRatioList(List<OrderEntity> orderList, BigInteger gcd) {
+		return orderList.stream().map(x -> x.getQuantiy().divide(gcd)).collect(Collectors.toList());
 	}
 
 	@Override
@@ -183,6 +213,47 @@ public class OrderbookServiceImpl implements OrderbookService {
 				.valueOf(record.getOrders().stream().mapToInt(x -> x.getQuantiy().intValue()).sum());
 		logger.info("For OrderEntity Book " + id + " number of orders is " + record.getOrders().size());
 		logger.info("For OrderEntity Book " + id + " total demand as accumulated order quantity is " + totOrders);
+	}
+
+	private boolean checkIfOrderbookExists(String id) {
+		return orderbookRepository.findbyInstrument(id).isPresent();
+	}
+
+	private boolean checkIfOrderbookIsOpen(String id) {
+		if (orderbookRepository.findbyInstrument(id).get().getStatus() == Status.OPEN)
+			return true;
+		else
+			return false;
+	}
+
+	private boolean checkIfOrderbookIsClosed(String id) {
+		if (orderbookRepository.findbyInstrument(id).get().getStatus() == Status.CLOSE)
+			return true;
+		else
+			return false;
+	}
+
+	private boolean checkIfOrderbookIsExecuted(String id) {
+		if (orderbookRepository.findbyInstrument(id).get().getStatus() == Status.EXECUTE)
+			return true;
+		else
+			return false;
+	}
+
+	private boolean checkIfMarketOrderHasLimitPrice(OrderEntity x) {
+		return Optional.ofNullable(x.getPrice()).isPresent();
+	}
+
+	private boolean checkIfLimitOrder(OrderEntity x) {
+		return x.getOrderType().equalsIgnoreCase(StaticUtils.LIMIT);
+	}
+
+	private boolean checkIfLimitOrderHasLimitPrice(OrderEntity x) {
+		return Optional.ofNullable(x.getPrice()).isPresent();
+	}
+
+	private boolean checkIfMarketOrder(OrderEntity x) {
+		return x.getOrderType().equalsIgnoreCase(StaticUtils.MARKET);
 	}
 
 }

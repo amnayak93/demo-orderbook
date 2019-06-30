@@ -1,7 +1,9 @@
 package com.cs.Orderbook.Entity;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -19,33 +21,46 @@ public class OrderEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn
 	private OrderbookEntity orderBook;
-	private BigDecimal quantiy;
+	private BigInteger quantity;
 	private LocalDateTime entryDate;
 	private BigDecimal price;
 	private String orderType;
+	private OrderStatus status;
+	private BigInteger executionQuantity;
 
 	public OrderEntity() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 
-	public OrderEntity(long id, OrderbookEntity orderBook, BigDecimal quantiy, LocalDateTime entryDate,
-			BigDecimal price, String orderType) {
+	public OrderEntity(BigInteger quantity, LocalDateTime entryDate, String orderType, BigDecimal price) {
 		super();
-		this.orderId = id;
-		this.orderBook = orderBook;
-		this.quantiy = quantiy;
+		this.quantity = quantity;
 		this.entryDate = entryDate;
+		this.orderType = orderType;
 		this.price = price;
+	}
+
+	public OrderEntity(BigInteger quantity, LocalDateTime entryDate, String orderType) {
+		super();
+		this.quantity = quantity;
+		this.entryDate = entryDate;
 		this.orderType = orderType;
 	}
 
-	public BigDecimal getQuantiy() {
-		return quantiy;
+	public long getOrderId() {
+		return orderId;
 	}
 
-	public void setQuantiy(BigDecimal quantiy) {
-		this.quantiy = quantiy;
+	public void setOrderId(long orderId) {
+		this.orderId = orderId;
+	}
+
+	public BigInteger getQuantiy() {
+		return quantity;
+	}
+
+	public void setQuantiy(BigInteger quantiy) {
+		this.quantity = quantiy;
 	}
 
 	public LocalDateTime getEntryDate() {
@@ -78,6 +93,22 @@ public class OrderEntity {
 
 	public void setOrderBook(OrderbookEntity orderBook) {
 		this.orderBook = orderBook;
+	}
+
+	public OrderStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(OrderStatus status) {
+		this.status = status;
+	}
+
+	public BigInteger getExecutionQuantity() {
+		return executionQuantity;
+	}
+
+	public void setExecutionQuantity(BigInteger executionQuantity) {
+		this.executionQuantity = executionQuantity;
 	}
 
 }

@@ -14,13 +14,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 
-	@ExceptionHandler(OrderbookNotFoundException.class)
-	public final ResponseEntity<Object> handleOrderbookNotFoundException(OrderbookNotFoundException ex,
+	@ExceptionHandler(OrderbookFoundException.class)
+	public final ResponseEntity<Object> handleOrderbookNotFoundException(OrderbookFoundException ex,
 			WebRequest request, HttpServletResponse response) {
 		List<String> details = new ArrayList<>();
 		details.add(ex.getLocalizedMessage());
 		response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-		ErrorResponse error = new ErrorResponse(response.getStatus(), "Orderbook not found", details);
+		ErrorResponse error = new ErrorResponse(response.getStatus(), "Orderbook found", details);
 		return new ResponseEntity(error, HttpStatus.NOT_FOUND);
 	}
 	

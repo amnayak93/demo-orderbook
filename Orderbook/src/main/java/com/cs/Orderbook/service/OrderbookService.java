@@ -18,7 +18,7 @@ public interface OrderbookService {
 
 	OrderbookEntity addOrders(List<OrderEntity> orders, String fid);
 
-	void executeOrders(ExecutionEntity execution, BigDecimal executionPrice);
+	OrderbookEntity executeOrders(ExecutionEntity execution, String fid);
 
 	void openOrCloseBook(OrderbookEntity book);
 

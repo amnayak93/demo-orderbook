@@ -1,6 +1,7 @@
 package com.cs.Orderbook.Entity;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -22,11 +23,14 @@ public class ExecutionEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn
 	private OrderbookEntity orderBook;
-	private BigDecimal executionQuantity;
+	private BigInteger executionQuantity;
 	private BigDecimal executionPrice;
 
-	public ExecutionEntity(OrderbookEntity orderBook, BigDecimal executionQuantity, BigDecimal executionPrice) {
-		this.orderBook = orderBook;
+	public ExecutionEntity() {
+		super();
+	}
+
+	public ExecutionEntity(BigInteger executionQuantity, BigDecimal executionPrice) {
 		this.executionQuantity = executionQuantity;
 		this.executionPrice = executionPrice;
 	}
@@ -39,11 +43,11 @@ public class ExecutionEntity {
 		this.orderBook = orderBook;
 	}
 
-	public BigDecimal getExecutionQuantity() {
+	public BigInteger getExecutionQuantity() {
 		return executionQuantity;
 	}
 
-	public void setExecutionQuantity(BigDecimal executionQuantity) {
+	public void setExecutionQuantity(BigInteger executionQuantity) {
 		this.executionQuantity = executionQuantity;
 	}
 
