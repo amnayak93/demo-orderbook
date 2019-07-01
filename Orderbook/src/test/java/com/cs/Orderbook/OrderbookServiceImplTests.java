@@ -200,17 +200,17 @@ public class OrderbookServiceImplTests {
 		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
-		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(3), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(7), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(11), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		OrderbookEntity orderbook = orderbookService.executeOrders(execution, instrument);
 		assertNotNull(orderbook);
 		assertEquals(instrument, orderbook.getInstrument());
-		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(3));
-		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(6));
-		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigDecimal.valueOf(6));
+		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(2));
+		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(5));
+		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigDecimal.valueOf(8));
 		assertEquals(
 				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(),
 				3l);

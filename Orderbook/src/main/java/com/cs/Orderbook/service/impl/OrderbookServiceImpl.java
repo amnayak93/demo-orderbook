@@ -160,18 +160,46 @@ public class OrderbookServiceImpl implements OrderbookService {
 		BigInteger gcd = findGcdOfOrderQuantities(orderList);
 		List<BigInteger> ratioList = calculateRatioList(orderList, gcd);
 		BigInteger ratioSum = ratioList.stream().reduce(BigInteger::add).get();
+		BigDecimal distributedExecution = new BigDecimal(0);
 		for (int i = 0; i < orderList.size(); i++) {
 			if (orderList.get(i).getExecutionQuantity() == null) {
+				distributedExecution = distributedExecution
+						.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
 				orderList.get(i).setExecutionQuantity(
 						execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
-								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP));
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
 				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
-			} else
+			} else {
+				distributedExecution = distributedExecution
+						.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
 				orderList.get(i)
 						.setExecutionQuantity(orderList.get(i).getExecutionQuantity()
 								.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
-										.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP)));
-			orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
+										.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN)));
+				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
+			}
+		}
+
+		// BigDecimal distributedExecutionQuantity =
+		// orderList.stream().map(OrderEntity::getExecutionQuantity).reduce(BigDecimal.ZERO,
+		// BigDecimal::add);
+		BigDecimal difference = execution.getExecutionQuantity().subtract(distributedExecution).abs();
+		if (distributedExecution.compareTo(execution.getExecutionQuantity()) == 1) {
+			int i = 0;
+			while (difference.intValue() != 0) {
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().add(BigDecimal.ONE));
+				i++;
+				difference = difference.subtract(BigDecimal.ONE);
+			}
+		} else if (distributedExecution.compareTo(execution.getExecutionQuantity()) == -1) {
+			int i = 0;
+			while (difference.intValue() != 0) {
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().subtract(BigDecimal.ONE));
+				i++;
+				difference = difference.subtract(BigDecimal.ONE);
+			}
 		}
 	}
 
