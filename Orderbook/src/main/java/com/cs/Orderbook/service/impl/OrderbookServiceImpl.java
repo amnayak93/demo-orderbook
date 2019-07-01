@@ -121,7 +121,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 			if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
 					.reduce(BigInteger.ZERO, BigInteger::add).add(execution.getExecutionQuantity())
 					.longValue() > orderBook.getOrders().stream()
-							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy).reduce(BigInteger.ZERO, BigInteger::add).longValue())
+							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
+							.reduce(BigInteger.ZERO, BigInteger::add).longValue())
 				throw new ExecutionQuantityIsMoreThanTheValidDemandException(
 						"The execution cannot be executed because it is more than the valid demand for the orderbook with intrument id "
 								+ instrument);
@@ -131,7 +132,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 		linearDistributionAmongVaildOrders(orderBook, execution);
 		if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
 				.reduce(BigInteger.ZERO, BigInteger::add).longValue() == orderBook.getOrders().stream()
-						.filter(x -> x.getStatus().equals(OrderStatus.VALID)).count())
+						.filter(x -> x.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
+						.reduce(BigInteger.ZERO, BigInteger::add).longValue())
 			orderBook.setStatus(Status.EXECUTE);
 		return orderbookRepository.save(orderBook);
 	}
@@ -153,16 +155,18 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private void linearDistributionAmongVaildOrders(OrderbookEntity orderBook, ExecutionEntity execution) {
-		List<OrderEntity> orderList = orderBook.getOrders().stream().filter(x -> x.getStatus().equals(OrderStatus.VALID)).collect(Collectors.toList());
+		List<OrderEntity> orderList = orderBook.getOrders().stream()
+				.filter(x -> x.getStatus().equals(OrderStatus.VALID)).collect(Collectors.toList());
 		BigInteger gcd = findGcdOfOrderQuantities(orderList);
 		List<BigInteger> ratioList = calculateRatioList(orderList, gcd);
 		BigInteger ratioSum = ratioList.stream().reduce(BigInteger::add).get();
 		for (int i = 0; i < orderList.size(); i++) {
-			if(orderList.get(i).getExecutionQuantity() == null)
-			orderList.get(i)
-					.setExecutionQuantity(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
+			if (orderList.get(i).getExecutionQuantity() == null)
+				orderList.get(i).setExecutionQuantity(
+						execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
 			else
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity()
+						.add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
 		}
 	}
 

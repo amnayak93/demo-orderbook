@@ -300,4 +300,23 @@ public class OrderbookApplicationTests {
 		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigInteger.valueOf(12));
 
 	}
+
+	@Test
+	public void whenOrderbookExistsAndIsClosedAndTotalExecutionEqualsAccumulatedValidDemand() {
+		String instrument = "Fi2";
+		orderbook2.setOrders(orders2);
+		orderbook2.getOrders().get(2).setPrice(BigDecimal.valueOf(100));
+		orders2.forEach(record -> record.setStatus(OrderStatus.VALID));
+		orderbook2.setOrders(orders2);
+		orderbook2.getOrders().get(0).setExecutionQuantity(BigInteger.valueOf(3));
+		orderbook2.getOrders().get(1).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbook2.getOrders().get(2).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbook2.setExecutions(executions1);
+		orderbookRepository.save(orderbook2);
+
+		OrderbookEntity orderbook = orderbookService.executeOrders(execution4, instrument);
+		assertNotNull(orderbook);
+		assertEquals(orderbook.getInstrument(), instrument);
+		assertEquals(orderbook.getStatus(), Status.EXECUTE);
+	}
 }
