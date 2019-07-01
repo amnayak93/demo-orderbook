@@ -121,7 +121,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 			if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
 					.reduce(BigInteger.ZERO, BigInteger::add).add(execution.getExecutionQuantity())
 					.longValue() > orderBook.getOrders().stream()
-							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).count())
+							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy).reduce(BigInteger.ZERO, BigInteger::add).longValue())
 				throw new ExecutionQuantityIsMoreThanTheValidDemandException(
 						"The execution cannot be executed because it is more than the valid demand for the orderbook with intrument id "
 								+ instrument);

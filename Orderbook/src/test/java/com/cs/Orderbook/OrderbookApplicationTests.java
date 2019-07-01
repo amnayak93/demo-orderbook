@@ -288,6 +288,7 @@ public class OrderbookApplicationTests {
 		orderbook2.getOrders().get(0).setExecutionQuantity(BigInteger.valueOf(3));
 		orderbook2.getOrders().get(1).setExecutionQuantity(BigInteger.valueOf(6));
 		orderbook2.getOrders().get(2).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbook2.setExecutions(executions1);
 		orderbookRepository.save(orderbook2);
 
 		/* Second Execution with new execution */
