@@ -58,8 +58,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 	@Override
 	public OrderbookEntity closeOrderbook(String id) {
 		OrderbookEntity orderbookEntity = new OrderbookEntity();
-		if (!checkIfOrderbookExists(id))
-			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + id);
+		orderbookRepository.findbyInstrument(id).orElseThrow(
+				() -> new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + id));
 		if (!checkIfOrderbookIsOpen(id))
 			throw new OrderbookIsNotOpenException(
 					"The Orderbook is not opened for instrument id " + id + " so it cannot be closed");
@@ -72,9 +72,10 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	@Override
 	public OrderbookEntity addOrders(List<OrderEntity> orders, String fid) {
-		if (!checkIfOrderbookExists(fid))
-			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + fid
-					+ ". Please open it first before adding orders");
+
+		orderbookRepository.findbyInstrument(fid)
+				.orElseThrow(() -> new OrderbookNotFoundException("There are no orderbooks for financial instrument id "
+						+ fid + ". Please open it first before adding orders"));
 		if (!checkIfOrderbookIsOpen(fid))
 			throw new OrderbookIsNotOpenException(
 					"The Orderbook is not opened for instrument id " + fid + " Please open it to add orders");
@@ -98,9 +99,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 	public OrderbookEntity executeOrders(ExecutionEntity execution, String fid) {
 		String instrument = fid;
 		List<ExecutionEntity> executions = new ArrayList<>();
-		if (!checkIfOrderbookExists(instrument))
-			throw new OrderbookNotFoundException(
-					"There are no orderbooks for financial instrument id " + instrument + " cannot add executions");
+		orderbookRepository.findbyInstrument(fid).orElseThrow(() -> new OrderbookNotFoundException(
+				"There are no orderbooks for financial instrument id " + instrument + " cannot add executions"));
 		if (!checkIfOrderbookIsClosed(fid))
 			throw new OrderbookIsNotClosedException(
 					"The orderbook for instrument id " + fid + " is not closed. Executions cannot be added");
