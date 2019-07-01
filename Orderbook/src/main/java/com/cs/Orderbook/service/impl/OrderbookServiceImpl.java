@@ -1,6 +1,8 @@
 package com.cs.Orderbook.service.impl;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -12,9 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.cs.Orderbook.Entity.ExecutionEntity;
 import com.cs.Orderbook.Entity.OrderEntity;
-import com.cs.Orderbook.Entity.OrderStatus;
 import com.cs.Orderbook.Entity.OrderbookEntity;
-import com.cs.Orderbook.Entity.Status;
 import com.cs.Orderbook.Exception.ExecutionPriceShouldNotChangeException;
 import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandException;
 import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
@@ -26,7 +26,10 @@ import com.cs.Orderbook.Exception.OrderbookNotFoundException;
 import com.cs.Orderbook.repository.OrderRepository;
 import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
+import com.cs.Orderbook.utils.OrderStatus;
+import com.cs.Orderbook.utils.OrderType;
 import com.cs.Orderbook.utils.StaticUtils;
+import com.cs.Orderbook.utils.Status;
 
 public class OrderbookServiceImpl implements OrderbookService {
 
@@ -111,10 +114,10 @@ public class OrderbookServiceImpl implements OrderbookService {
 						"The Execution Price is not equal to the initial execution price of the orderbook with instrument id "
 								+ instrument + " this execution cannot be executed. ");
 			if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
-					.reduce(BigInteger.ZERO, BigInteger::add).add(execution.getExecutionQuantity())
+					.reduce(BigDecimal.ZERO, BigDecimal::add).add(execution.getExecutionQuantity())
 					.longValue() > orderBook.getOrders().stream()
 							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
-							.reduce(BigInteger.ZERO, BigInteger::add).longValue())
+							.reduce(BigDecimal.ZERO, BigDecimal::add).longValue())
 				throw new ExecutionQuantityIsMoreThanTheValidDemandException(
 						"The execution cannot be executed because it is more than the valid demand for the orderbook with intrument id "
 								+ instrument);
@@ -123,9 +126,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 		}
 		linearDistributionAmongVaildOrders(orderBook, execution);
 		if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
-				.reduce(BigInteger.ZERO, BigInteger::add).longValue() == orderBook.getOrders().stream()
+				.reduce(BigDecimal.ZERO, BigDecimal::add).longValue() == orderBook.getOrders().stream()
 						.filter(x -> x.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
-						.reduce(BigInteger.ZERO, BigInteger::add).longValue())
+						.reduce(BigDecimal.ZERO, BigDecimal::add).longValue())
 			orderBook.setStatus(Status.EXECUTE);
 		return orderbookRepository.save(orderBook);
 	}
@@ -134,9 +137,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 		List<ExecutionEntity> executions = new ArrayList<>();
 		executions.add(execution);
 		List<OrderEntity> orders = orderbookEntity.getOrders();
-		orders.stream().filter(record -> StaticUtils.MARKET.equalsIgnoreCase(record.getOrderType()))
+		orders.stream().filter(record -> OrderType.MARKET.equals(record.getOrderType()))
 				.forEach(record -> record.setStatus(OrderStatus.VALID));
-		orders.stream().filter(record -> StaticUtils.LIMIT.equalsIgnoreCase(record.getOrderType())).forEach(record -> {
+		orders.stream().filter(record -> OrderType.LIMIT.equals(record.getOrderType())).forEach(record -> {
 			if (record.getPrice().compareTo(execution.getExecutionPrice()) != -1)
 				record.setStatus(OrderStatus.VALID);
 			else
@@ -155,34 +158,39 @@ public class OrderbookServiceImpl implements OrderbookService {
 		for (int i = 0; i < orderList.size(); i++) {
 			if (orderList.get(i).getExecutionQuantity() == null)
 				orderList.get(i).setExecutionQuantity(
-						execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
+						execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP));
 			else
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity()
-						.add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
+				orderList.get(i)
+						.setExecutionQuantity(orderList.get(i).getExecutionQuantity()
+								.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
+										.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP)));
 		}
-		/*for (int i = 0; i < orderList.size(); i++) {
-			if (orderList.get(i).getExecutionQuantity() == null){
-				orderList.get(i).setExecutionQuantity(
-						execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
-				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
-			}
-			else{
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity()
-						.add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
-			}
-		}*/
+		/*
+		 * for (int i = 0; i < orderList.size(); i++) { if
+		 * (orderList.get(i).getExecutionQuantity() == null){
+		 * orderList.get(i).setExecutionQuantity(
+		 * execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(
+		 * ratioSum));
+		 * orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).
+		 * getExecutionPrice()); } else{
+		 * orderList.get(i).setExecutionQuantity(orderList.get(i).
+		 * getExecutionQuantity()
+		 * .add(execution.getExecutionQuantity().multiply(ratioList.get(i)).
+		 * divide(ratioSum))); } }
+		 */
 	}
 
 	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
-		BigInteger result = orderList.get(0).getQuantiy();
+		BigInteger result = orderList.get(0).getQuantiy().toBigInteger();
 		for (int i = 1; i < orderList.size(); i++) {
-			result = orderList.get(i).getQuantiy().gcd(result);
+			result = orderList.get(i).getQuantiy().toBigInteger().gcd(result);
 		}
 		return result;
 	}
 
 	private List<BigInteger> calculateRatioList(List<OrderEntity> orderList, BigInteger gcd) {
-		return orderList.stream().map(x -> x.getQuantiy().divide(gcd)).collect(Collectors.toList());
+		return orderList.stream().map(x -> x.getQuantiy().toBigInteger().divide(gcd)).collect(Collectors.toList());
 	}
 
 	public void getStatistics1() {
@@ -201,12 +209,14 @@ public class OrderbookServiceImpl implements OrderbookService {
 			logger.info("The Order with order id " + orderId + " is a vaild order");
 		else if (order.getStatus().equals(OrderStatus.INVALID))
 			logger.info("The Order with order id " + orderId + " is an invaild order");
-		if (order.getOrderType().equalsIgnoreCase(StaticUtils.LIMIT))
+		if (order.getOrderType().equals(OrderType.LIMIT))
 			logger.info("The Order with order id " + orderId + "has a limit price of " + order.getPrice());
 		logger.info("The execution quantity for the order with order id " + orderId + " is "
 				+ order.getExecutionQuantity());
-		/*logger.info("The execution price for the order with order id " + orderId + " is "
-				+ order.getExecutionPrice());*/
+		/*
+		 * logger.info("The execution price for the order with order id " +
+		 * orderId + " is " + order.getExecutionPrice());
+		 */
 	}
 
 	private void getFirstAndLastEntryOfOrder(OrderbookEntity record) {
@@ -251,19 +261,12 @@ public class OrderbookServiceImpl implements OrderbookService {
 			return false;
 	}
 
-	private boolean checkIfOrderbookIsExecuted(String id) {
-		if (orderbookRepository.findbyInstrument(id).get().getStatus() == Status.EXECUTE)
-			return true;
-		else
-			return false;
-	}
-
 	private boolean checkIfMarketOrderHasLimitPrice(OrderEntity x) {
 		return Optional.ofNullable(x.getPrice()).isPresent();
 	}
 
 	private boolean checkIfLimitOrder(OrderEntity x) {
-		return x.getOrderType().equalsIgnoreCase(StaticUtils.LIMIT);
+		return x.getOrderType().equals(OrderType.LIMIT);
 	}
 
 	private boolean checkIfLimitOrderHasLimitPrice(OrderEntity x) {
@@ -271,7 +274,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private boolean checkIfMarketOrder(OrderEntity x) {
-		return x.getOrderType().equalsIgnoreCase(StaticUtils.MARKET);
+		return x.getOrderType().equals(OrderType.MARKET);
 	}
 
 }

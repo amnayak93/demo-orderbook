@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,9 +20,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import com.cs.Orderbook.Entity.ExecutionEntity;
 import com.cs.Orderbook.Entity.OrderEntity;
-import com.cs.Orderbook.Entity.OrderStatus;
 import com.cs.Orderbook.Entity.OrderbookEntity;
-import com.cs.Orderbook.Entity.Status;
 import com.cs.Orderbook.Exception.ExecutionPriceShouldNotChangeException;
 import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandException;
 import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
@@ -35,11 +32,13 @@ import com.cs.Orderbook.Exception.OrderbookNotFoundException;
 import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
 import com.cs.Orderbook.service.impl.OrderbookServiceImpl;
-import com.cs.Orderbook.utils.StaticUtils;
+import com.cs.Orderbook.utils.OrderStatus;
+import com.cs.Orderbook.utils.OrderType;
+import com.cs.Orderbook.utils.Status;
 
 @RunWith(SpringRunner.class)
 @DataJpaTest
-public class OrderbookApplicationTests {
+public class OrderbookServiceImplTests {
 
 	@TestConfiguration
 	static class OrderbookApplicationTestConfiguration {
@@ -121,7 +120,7 @@ public class OrderbookApplicationTests {
 	@Test(expected = OrderbookNotFoundException.class)
 	public void whenOrderbookDoesNotExistButAddOrdersToOrderbook() {
 		List<OrderEntity> orders = new ArrayList<>();
-		orders.add(new OrderEntity(BigInteger.valueOf(40), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(40), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		String instrument = "Fi1";
 		orderbookService.addOrders(orders, instrument);
 	}
@@ -129,7 +128,7 @@ public class OrderbookApplicationTests {
 	@Test(expected = OrderbookIsNotOpenException.class)
 	public void whenOrderbookExistsButIsNotOpenAddOrdersToOrderbook() {
 		List<OrderEntity> orders = new ArrayList<>();
-		orders.add(new OrderEntity(BigInteger.valueOf(40), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(40), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
@@ -141,8 +140,8 @@ public class OrderbookApplicationTests {
 	public void whenOrderbookExistsAndIsOpenButAddOrdersHavingMarketOrderAndLimitPrice() {
 		List<OrderEntity> orders = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.OPEN);
-		orders.add(new OrderEntity(BigInteger.valueOf(40), today, StaticUtils.LIMIT, BigDecimal.valueOf(80)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(40), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		String instrument = "Fi1";
@@ -153,8 +152,8 @@ public class OrderbookApplicationTests {
 	public void whenOrderbookExistsAndIsOpenButAddOrdersHavingLimitOrderDoesNotHaveLimitPrice() {
 		List<OrderEntity> orders = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.OPEN);
-		orders.add(new OrderEntity(BigInteger.valueOf(40), today, StaticUtils.LIMIT, BigDecimal.valueOf(80)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT));
+		orders.add(new OrderEntity(BigDecimal.valueOf(40), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		String instrument = "Fi1";
@@ -165,8 +164,8 @@ public class OrderbookApplicationTests {
 	public void whenOrderbookExistsAndIsOpenAndOrdersHavingMarketOrderThatDoesNotHaveLimitPrice() {
 		List<OrderEntity> orders = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.OPEN);
-		orders.add(new OrderEntity(BigInteger.valueOf(40), today, StaticUtils.LIMIT, BigDecimal.valueOf(80)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(40), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		String instrument = "Fi1";
@@ -179,7 +178,7 @@ public class OrderbookApplicationTests {
 
 	@Test(expected = OrderbookNotFoundException.class)
 	public void whenOrderbookDoesNotExistButExecuteOrderbook() {
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
 		String instrument = "Fi1";
 		orderbookService.executeOrders(execution, instrument);
 	}
@@ -188,7 +187,7 @@ public class OrderbookApplicationTests {
 	public void whenOrderbookExistsAndIsNotClosedExecuteOrderbook() {
 		orderbook = new OrderbookEntity("Fi1", Status.OPEN);
 		orderbookRepository.save(orderbook);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
 		String instrument = "Fi1";
 		orderbookService.executeOrders(execution, instrument);
 	}
@@ -198,20 +197,20 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		OrderbookEntity orderbook = orderbookService.executeOrders(execution, instrument);
 		assertNotNull(orderbook);
 		assertEquals(instrument, orderbook.getInstrument());
-		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(3));
-		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(6));
-		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigInteger.valueOf(6));
+		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(3));
+		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(6));
+		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigDecimal.valueOf(6));
 		assertEquals(
 				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(),
 				3l);
@@ -224,12 +223,12 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
 		orderbook.setOrders(orders);
 		orderbookRepository.save(orderbook);
 		OrderbookEntity orderbook = orderbookService.executeOrders(execution, instrument);
@@ -241,8 +240,8 @@ public class OrderbookApplicationTests {
 		assertEquals(
 				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.INVALID)).count(),
 				1l);
-		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(5));
-		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(10));
+		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(5));
+		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(10));
 		assertEquals(orderbook.getExecutions(), executions);
 		assertEquals(orderbook.getStatus(), Status.CLOSE);
 	}
@@ -253,13 +252,13 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
-		executionWithChangedPrice = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(80));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
+		executionWithChangedPrice = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(80));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbook.setExecutions(executions);
 		orderbookRepository.save(orderbook);
@@ -271,15 +270,15 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
-		execution3 = new ExecutionEntity(BigInteger.valueOf(25), BigDecimal.valueOf(90));
-		execution4 = new ExecutionEntity(BigInteger.valueOf(35), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
+		execution3 = new ExecutionEntity(BigDecimal.valueOf(25), BigDecimal.valueOf(90));
+		execution4 = new ExecutionEntity(BigDecimal.valueOf(35), BigDecimal.valueOf(90));
 		executions.add(execution);
 		executions.add(execution3);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbook.setExecutions(executions);
 		orders.stream().forEach(record -> record.setStatus(OrderStatus.VALID));
@@ -294,19 +293,19 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(10), BigDecimal.valueOf(90));
-		execution3 = new ExecutionEntity(BigInteger.valueOf(10), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(10), BigDecimal.valueOf(90));
+		execution3 = new ExecutionEntity(BigDecimal.valueOf(10), BigDecimal.valueOf(90));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(90), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(90), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbook.setExecutions(executions);
 		orders.stream().forEach(record -> record.setStatus(OrderStatus.VALID));
-		orderbook.getOrders().get(0).setExecutionQuantity(BigInteger.valueOf(9));
-		//orderbook.getOrders().get(0).setExecutionPrice(BigDecimal.valueOf(90));
-		orderbook.getOrders().get(1).setExecutionQuantity(BigInteger.valueOf(1));
-		//orderbook.getOrders().get(1).setExecutionPrice(BigDecimal.valueOf(90));
+		orderbook.getOrders().get(0).setExecutionQuantity(BigDecimal.valueOf(9));
+		// orderbook.getOrders().get(0).setExecutionPrice(BigDecimal.valueOf(90));
+		orderbook.getOrders().get(1).setExecutionQuantity(BigDecimal.valueOf(1));
+		// orderbook.getOrders().get(1).setExecutionPrice(BigDecimal.valueOf(90));
 		orderbook.setExecutions(executions);
 		orderbookRepository.save(orderbook);
 
@@ -314,8 +313,8 @@ public class OrderbookApplicationTests {
 		OrderbookEntity orderbook = orderbookService.executeOrders(execution3, instrument);
 		assertNotNull(orderbook);
 		assertEquals(instrument, orderbook.getInstrument());
-		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(18));
-		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(2));
+		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(18));
+		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(2));
 
 	}
 
@@ -324,19 +323,19 @@ public class OrderbookApplicationTests {
 		List<OrderEntity> orders = new ArrayList<>();
 		List<ExecutionEntity> executions = new ArrayList<>();
 		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
-		execution = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
-		execution3 = new ExecutionEntity(BigInteger.valueOf(35), BigDecimal.valueOf(90));
+		execution = new ExecutionEntity(BigDecimal.valueOf(15), BigDecimal.valueOf(90));
+		execution3 = new ExecutionEntity(BigDecimal.valueOf(35), BigDecimal.valueOf(90));
 		executions.add(execution);
 		String instrument = "Fi1";
-		orders.add(new OrderEntity(BigInteger.valueOf(10), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.MARKET));
-		orders.add(new OrderEntity(BigInteger.valueOf(20), today, StaticUtils.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(BigDecimal.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
 		orderbook.setOrders(orders);
 		orderbook.setExecutions(executions);
 		orders.stream().forEach(record -> record.setStatus(OrderStatus.VALID));
-		orderbook.getOrders().get(0).setExecutionQuantity(BigInteger.valueOf(3));
-		orderbook.getOrders().get(1).setExecutionQuantity(BigInteger.valueOf(6));
-		orderbook.getOrders().get(2).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbook.getOrders().get(0).setExecutionQuantity(BigDecimal.valueOf(3));
+		orderbook.getOrders().get(1).setExecutionQuantity(BigDecimal.valueOf(6));
+		orderbook.getOrders().get(2).setExecutionQuantity(BigDecimal.valueOf(6));
 		orderbook.setExecutions(executions);
 		orderbookRepository.save(orderbook);
 

@@ -11,6 +11,8 @@ import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
+import com.cs.Orderbook.utils.Status;
+
 import lombok.Data;;
 
 @Data

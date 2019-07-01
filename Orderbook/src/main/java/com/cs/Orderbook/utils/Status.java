@@ -1,4 +1,4 @@
-package com.cs.Orderbook.Entity;
+package com.cs.Orderbook.utils;
 
 public enum Status {
 	OPEN, CLOSE, EXECUTE;
