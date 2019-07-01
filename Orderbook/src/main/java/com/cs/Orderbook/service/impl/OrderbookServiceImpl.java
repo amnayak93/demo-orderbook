@@ -158,8 +158,11 @@ public class OrderbookServiceImpl implements OrderbookService {
 		List<BigInteger> ratioList = calculateRatioList(orderList, gcd);
 		BigInteger ratioSum = ratioList.stream().reduce(BigInteger::add).get();
 		for (int i = 0; i < orderList.size(); i++) {
+			if(orderList.get(i).getExecutionQuantity() == null)
 			orderList.get(i)
 					.setExecutionQuantity(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
+			else
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
 		}
 	}
 

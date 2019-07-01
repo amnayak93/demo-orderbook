@@ -102,8 +102,8 @@ public class OrderbookApplicationTests {
 
 		execution1 = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
 		execution2 = new ExecutionEntity(BigInteger.valueOf(20), BigDecimal.valueOf(100));
-		execution3 = new ExecutionEntity(BigInteger.valueOf(10), BigDecimal.valueOf(90));
-		execution4 = new ExecutionEntity(BigInteger.valueOf(30), BigDecimal.valueOf(90));
+		execution3 = new ExecutionEntity(BigInteger.valueOf(15), BigDecimal.valueOf(90));
+		execution4 = new ExecutionEntity(BigInteger.valueOf(35), BigDecimal.valueOf(90));
 
 		executions1.add(execution1);
 
@@ -226,11 +226,13 @@ public class OrderbookApplicationTests {
 		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(3));
 		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(6));
 		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigInteger.valueOf(6));
-		assertEquals(orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(), 3l);
+		assertEquals(
+				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(),
+				3l);
 		assertEquals(orderbook.getExecutions(), executions1);
 		assertEquals(orderbook.getStatus(), Status.CLOSE);
 	}
-	
+
 	@Test
 	public void whenOrderbookExistsAndIsClosedAndFirstExecutionAndOneInvalidOrderForOrderbook() {
 		String instrument = "Fi2";
@@ -240,8 +242,12 @@ public class OrderbookApplicationTests {
 		OrderbookEntity orderbook = orderbookService.executeOrders(execution1, instrument);
 		assertNotNull(orderbook);
 		assertEquals(instrument, orderbook.getInstrument());
-		assertEquals(orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(), 2l);
-		assertEquals(orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.INVALID)).count(), 1l);
+		assertEquals(
+				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.VALID)).count(),
+				2l);
+		assertEquals(
+				orderbook.getOrders().stream().filter(record -> record.getStatus().equals(OrderStatus.INVALID)).count(),
+				1l);
 		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(5));
 		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(10));
 		assertEquals(orderbook.getExecutions(), executions1);
@@ -268,5 +274,29 @@ public class OrderbookApplicationTests {
 		orderbook2.setExecutions(executions1);
 		orderbookRepository.save(orderbook2);
 		orderbookService.executeOrders(execution4, instrument);
+	}
+
+	@Test
+	public void whenOrderbookExistsAndIsClosedAndAfterFirstExecutionSecondExecutionForOrderbook() {
+
+		/* Mock Data added for first execution */
+		String instrument = "Fi2";
+		executions1.add(execution1);
+		orderbook2.setOrders(orders2);
+		orderbook2.getOrders().get(2).setPrice(BigDecimal.valueOf(100));
+		orders2.stream().forEach(record -> record.setStatus(OrderStatus.VALID));
+		orderbook2.getOrders().get(0).setExecutionQuantity(BigInteger.valueOf(3));
+		orderbook2.getOrders().get(1).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbook2.getOrders().get(2).setExecutionQuantity(BigInteger.valueOf(6));
+		orderbookRepository.save(orderbook2);
+
+		/* Second Execution with new execution */
+		OrderbookEntity orderbook = orderbookService.executeOrders(execution3, instrument);
+		assertNotNull(orderbook);
+		assertEquals(instrument, orderbook.getInstrument());
+		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigInteger.valueOf(6));
+		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigInteger.valueOf(12));
+		assertEquals(orderbook.getOrders().get(2).getExecutionQuantity(), BigInteger.valueOf(12));
+
 	}
 }
