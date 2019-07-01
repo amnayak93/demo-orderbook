@@ -1,6 +1,5 @@
 package com.cs.Orderbook.service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -19,7 +18,5 @@ public interface OrderbookService {
 	OrderbookEntity addOrders(List<OrderEntity> orders, String fid);
 
 	OrderbookEntity executeOrders(ExecutionEntity execution, String fid);
-
-	void openOrCloseBook(OrderbookEntity book);
 
 }

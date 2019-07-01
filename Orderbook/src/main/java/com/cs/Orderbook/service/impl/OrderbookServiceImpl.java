@@ -20,11 +20,10 @@ import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandExcep
 import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
 import com.cs.Orderbook.Exception.MarketOrderHasLimitPriceException;
 import com.cs.Orderbook.Exception.OrderbookFoundException;
-import com.cs.Orderbook.Exception.OrderbookIsAlreadyExecutedException;
-import com.cs.Orderbook.Exception.OrderbookIsClosedException;
-import com.cs.Orderbook.Exception.OrderbookIsExecutedException;
-import com.cs.Orderbook.Exception.OrderbookIsOpenException;
+import com.cs.Orderbook.Exception.OrderbookIsNotClosedException;
+import com.cs.Orderbook.Exception.OrderbookIsNotOpenException;
 import com.cs.Orderbook.Exception.OrderbookNotFoundException;
+import com.cs.Orderbook.repository.OrderRepository;
 import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
 import com.cs.Orderbook.utils.StaticUtils;
@@ -35,6 +34,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	@Autowired
 	OrderbookRepository orderbookRepository;
+
+	@Autowired
+	OrderRepository orderRepository;
 
 	@Override
 	public OrderbookEntity openOrderbook(String id) {
@@ -55,13 +57,10 @@ public class OrderbookServiceImpl implements OrderbookService {
 		OrderbookEntity orderbookEntity = new OrderbookEntity();
 		if (!checkIfOrderbookExists(id))
 			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + id);
-		if (checkIfOrderbookIsClosed(id))
-			throw new OrderbookIsClosedException(
-					"The order book for financial instrument id " + id + " is already closed. So it cannot be closed");
-		if (checkIfOrderbookIsExecuted(id))
-			throw new OrderbookIsExecutedException(
-					"The order book for financial instrument id " + id + " is executed. So it cannot be closed");
-		if (checkIfOrderbookIsOpen(id)) {
+		if (!checkIfOrderbookIsOpen(id))
+			throw new OrderbookIsNotOpenException(
+					"The Orderbook is not opened for instrument id " + id + " so it cannot be closed");
+		else {
 			orderbookEntity = orderbookRepository.findbyInstrument(id).get();
 			orderbookEntity.setStatus(Status.CLOSE);
 		}
@@ -73,12 +72,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 		if (!checkIfOrderbookExists(fid))
 			throw new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + fid
 					+ ". Please open it first before adding orders");
-		if (checkIfOrderbookIsClosed(fid))
-			throw new OrderbookIsClosedException(
-					"The order book for financial instrument id " + fid + " is closed. So orders cannot be added");
-		if (checkIfOrderbookIsExecuted(fid))
-			throw new OrderbookIsExecutedException(
-					"The order book for financial instrument id " + fid + " is executed cannot add orders");
+		if (!checkIfOrderbookIsOpen(fid))
+			throw new OrderbookIsNotOpenException(
+					"The Orderbook is not opened for instrument id " + fid + " Please open it to add orders");
 		OrderbookEntity orderbookEntity = orderbookRepository.findbyInstrument(fid).get();
 		List<OrderEntity> ordersToBeAdded = orderbookEntity.getOrders();
 		orders.forEach(x -> {
@@ -102,13 +98,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 		if (!checkIfOrderbookExists(instrument))
 			throw new OrderbookNotFoundException(
 					"There are no orderbooks for financial instrument id " + instrument + " cannot add executions");
-		if (checkIfOrderbookIsOpen(instrument))
-			throw new OrderbookIsOpenException("The orderbook for financial instrument id " + instrument
-					+ " is open. The orderbook has to be closed to add executions");
-		if (checkIfOrderbookIsExecuted(instrument))
-			throw new OrderbookIsAlreadyExecutedException("The orderbook for financial instrument id " + instrument
-					+ " is already executed . Cannot accept new executions");
-
+		if (!checkIfOrderbookIsClosed(fid))
+			throw new OrderbookIsNotClosedException(
+					"The orderbook for instrument id " + fid + " is not closed. Executions cannot be added");
 		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(instrument).get();
 		if (orderBook.getExecutions() == null) {
 			orderBook = determineValidOrders(execution, orderBook);
@@ -168,6 +160,17 @@ public class OrderbookServiceImpl implements OrderbookService {
 				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity()
 						.add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
 		}
+		/*for (int i = 0; i < orderList.size(); i++) {
+			if (orderList.get(i).getExecutionQuantity() == null){
+				orderList.get(i).setExecutionQuantity(
+						execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum));
+				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
+			}
+			else{
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity()
+						.add(execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(ratioSum)));
+			}
+		}*/
 	}
 
 	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
@@ -182,12 +185,6 @@ public class OrderbookServiceImpl implements OrderbookService {
 		return orderList.stream().map(x -> x.getQuantiy().divide(gcd)).collect(Collectors.toList());
 	}
 
-	@Override
-	public void openOrCloseBook(OrderbookEntity book) {
-		orderbookRepository.save(book);
-
-	}
-
 	public void getStatistics1() {
 		List<OrderbookEntity> orderBooks = orderbookRepository.findAll();
 		orderBooks.stream().forEach(record -> {
@@ -196,6 +193,20 @@ public class OrderbookServiceImpl implements OrderbookService {
 			getFirstAndLastEntryOfOrder(record);
 		});
 
+	}
+
+	public void printSecondStatistics(long orderId) {
+		OrderEntity order = orderRepository.findById(orderId).get();
+		if (order.getStatus().equals(OrderStatus.VALID))
+			logger.info("The Order with order id " + orderId + " is a vaild order");
+		else if (order.getStatus().equals(OrderStatus.INVALID))
+			logger.info("The Order with order id " + orderId + " is an invaild order");
+		if (order.getOrderType().equalsIgnoreCase(StaticUtils.LIMIT))
+			logger.info("The Order with order id " + orderId + "has a limit price of " + order.getPrice());
+		logger.info("The execution quantity for the order with order id " + orderId + " is "
+				+ order.getExecutionQuantity());
+		/*logger.info("The execution price for the order with order id " + orderId + " is "
+				+ order.getExecutionPrice());*/
 	}
 
 	private void getFirstAndLastEntryOfOrder(OrderbookEntity record) {
