@@ -19,4 +19,8 @@ public interface OrderbookService {
 
 	OrderbookEntity executeOrders(ExecutionEntity execution, String fid);
 
+	OrderEntity printSecondStatistics(long orderId);
+	
+	void printFirstStatistics();
+
 }

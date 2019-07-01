@@ -215,6 +215,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 		return orderList.stream().map(x -> x.getQuantiy().toBigInteger().divide(gcd)).collect(Collectors.toList());
 	}
 
+	@Override
 	public void printFirstStatistics() {
 		List<OrderbookEntity> orderBooks = orderbookRepository.findAll();
 		orderBooks.stream().forEach(record -> {
@@ -227,10 +228,12 @@ public class OrderbookServiceImpl implements OrderbookService {
 		});
 	}
 
-	public void printSecondStatistics(long orderId) {
+	@Override
+	public OrderEntity printSecondStatistics(long orderId) {
 		OrderEntity order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new OrderDoesNotExistForTheGivenOrderIdException(
 						"Order does not exist for the order id " + orderId));
+		logger.info("===============================================================Printing Statistics2 for Order ==============================================================================================");
 		if (order.getStatus().equals(OrderStatus.VALID))
 			logger.info("The Order with order id " + orderId + " is a vaild order");
 		else if (order.getStatus().equals(OrderStatus.INVALID))
@@ -240,6 +243,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 		logger.info("The execution quantity for the order with order id " + orderId + " is "
 				+ order.getExecutionQuantity());
 		logger.info("The execution price for the order with order id " + orderId + " is " + order.getExecutionPrice());
+		logger.info("=============================================================End of Statistics2 for Order =================================================================================");
+		return order;
 
 	}
 

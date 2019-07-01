@@ -25,10 +25,12 @@ import com.cs.Orderbook.Exception.ExecutionPriceShouldNotChangeException;
 import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandException;
 import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
 import com.cs.Orderbook.Exception.MarketOrderHasLimitPriceException;
+import com.cs.Orderbook.Exception.OrderDoesNotExistForTheGivenOrderIdException;
 import com.cs.Orderbook.Exception.OrderbookFoundException;
 import com.cs.Orderbook.Exception.OrderbookIsNotClosedException;
 import com.cs.Orderbook.Exception.OrderbookIsNotOpenException;
 import com.cs.Orderbook.Exception.OrderbookNotFoundException;
+import com.cs.Orderbook.repository.OrderRepository;
 import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
 import com.cs.Orderbook.service.impl.OrderbookServiceImpl;
@@ -53,6 +55,9 @@ public class OrderbookServiceImplTests {
 
 	@Autowired
 	private OrderbookRepository orderbookRepository;
+	
+	@Autowired
+	private OrderRepository orderRepository;
 
 	private OrderbookEntity orderbook;
 
@@ -345,4 +350,24 @@ public class OrderbookServiceImplTests {
 		assertEquals(orderbook.getInstrument(), instrument);
 		assertEquals(orderbook.getStatus(), Status.EXECUTE);
 	}
+	
+	@Test(expected = OrderDoesNotExistForTheGivenOrderIdException.class)
+	public void whenOrderDoesNotExistForOrderIdPrintStatistics2(){
+		OrderEntity order = new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100));
+		orderRepository.save(order);
+		orderbookService.printSecondStatistics(7L);
+	}
+	
+	@Test
+	public void whenOrderExistForOrderIdPrintStatistics2(){
+		OrderEntity testOrder = new OrderEntity(BigDecimal.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100));
+		testOrder.setStatus(OrderStatus.VALID);
+		testOrder.setExecutionQuantity(BigDecimal.valueOf(5));
+		testOrder.setExecutionPrice(BigDecimal.valueOf(80));
+		orderRepository.save(testOrder);
+		long existingOrderId = orderRepository.findAll().get(0).getOrderId();
+		OrderEntity order = orderbookService.printSecondStatistics(existingOrderId);
+		assertNotNull(order);
+	}
+
 }
