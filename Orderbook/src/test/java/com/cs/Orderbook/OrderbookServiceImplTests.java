@@ -303,9 +303,9 @@ public class OrderbookServiceImplTests {
 		orderbook.setExecutions(executions);
 		orders.stream().forEach(record -> record.setStatus(OrderStatus.VALID));
 		orderbook.getOrders().get(0).setExecutionQuantity(BigDecimal.valueOf(9));
-		// orderbook.getOrders().get(0).setExecutionPrice(BigDecimal.valueOf(90));
+		orderbook.getOrders().get(0).setExecutionPrice(BigDecimal.valueOf(90));
 		orderbook.getOrders().get(1).setExecutionQuantity(BigDecimal.valueOf(1));
-		// orderbook.getOrders().get(1).setExecutionPrice(BigDecimal.valueOf(90));
+		orderbook.getOrders().get(1).setExecutionPrice(BigDecimal.valueOf(90));
 		orderbook.setExecutions(executions);
 		orderbookRepository.save(orderbook);
 
@@ -315,7 +315,8 @@ public class OrderbookServiceImplTests {
 		assertEquals(instrument, orderbook.getInstrument());
 		assertEquals(orderbook.getOrders().get(0).getExecutionQuantity(), BigDecimal.valueOf(18));
 		assertEquals(orderbook.getOrders().get(1).getExecutionQuantity(), BigDecimal.valueOf(2));
-
+		assertEquals(orderbook.getOrders().get(0).getExecutionPrice(), BigDecimal.valueOf(90));
+		assertEquals(orderbook.getOrders().get(1).getExecutionPrice(), BigDecimal.valueOf(90));
 	}
 
 	@Test

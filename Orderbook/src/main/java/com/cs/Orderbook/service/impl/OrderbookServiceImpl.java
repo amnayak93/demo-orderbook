@@ -5,6 +5,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -19,6 +20,7 @@ import com.cs.Orderbook.Exception.ExecutionPriceShouldNotChangeException;
 import com.cs.Orderbook.Exception.ExecutionQuantityIsMoreThanTheValidDemandException;
 import com.cs.Orderbook.Exception.LimitOrderDoesNotHaveLimitPriceException;
 import com.cs.Orderbook.Exception.MarketOrderHasLimitPriceException;
+import com.cs.Orderbook.Exception.OrderDoesNotExistForTheGivenOrderIdException;
 import com.cs.Orderbook.Exception.OrderbookFoundException;
 import com.cs.Orderbook.Exception.OrderbookIsNotClosedException;
 import com.cs.Orderbook.Exception.OrderbookIsNotOpenException;
@@ -28,7 +30,6 @@ import com.cs.Orderbook.repository.OrderbookRepository;
 import com.cs.Orderbook.service.OrderbookService;
 import com.cs.Orderbook.utils.OrderStatus;
 import com.cs.Orderbook.utils.OrderType;
-import com.cs.Orderbook.utils.StaticUtils;
 import com.cs.Orderbook.utils.Status;
 
 public class OrderbookServiceImpl implements OrderbookService {
@@ -113,11 +114,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 				throw new ExecutionPriceShouldNotChangeException(
 						"The Execution Price is not equal to the initial execution price of the orderbook with instrument id "
 								+ instrument + " this execution cannot be executed. ");
-			if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
-					.reduce(BigDecimal.ZERO, BigDecimal::add).add(execution.getExecutionQuantity())
-					.longValue() > orderBook.getOrders().stream()
-							.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
-							.reduce(BigDecimal.ZERO, BigDecimal::add).longValue())
+			if (checkIfExecutionCannotBeAdded(execution, orderBook))
 				throw new ExecutionQuantityIsMoreThanTheValidDemandException(
 						"The execution cannot be executed because it is more than the valid demand for the orderbook with intrument id "
 								+ instrument);
@@ -131,6 +128,14 @@ public class OrderbookServiceImpl implements OrderbookService {
 						.reduce(BigDecimal.ZERO, BigDecimal::add).longValue())
 			orderBook.setStatus(Status.EXECUTE);
 		return orderbookRepository.save(orderBook);
+	}
+
+	private boolean checkIfExecutionCannotBeAdded(ExecutionEntity execution, OrderbookEntity orderBook) {
+		return execution.getExecutionQuantity().longValue() > orderBook.getOrders().stream()
+				.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
+				.reduce(BigDecimal.ZERO, BigDecimal::add).subtract(orderBook.getExecutions().stream()
+						.map(ExecutionEntity::getExecutionQuantity).reduce(BigDecimal.ZERO, BigDecimal::add))
+				.longValue();
 	}
 
 	private OrderbookEntity determineValidOrders(ExecutionEntity execution, OrderbookEntity orderbookEntity) {
@@ -156,29 +161,18 @@ public class OrderbookServiceImpl implements OrderbookService {
 		List<BigInteger> ratioList = calculateRatioList(orderList, gcd);
 		BigInteger ratioSum = ratioList.stream().reduce(BigInteger::add).get();
 		for (int i = 0; i < orderList.size(); i++) {
-			if (orderList.get(i).getExecutionQuantity() == null)
+			if (orderList.get(i).getExecutionQuantity() == null) {
 				orderList.get(i).setExecutionQuantity(
 						execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
 								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP));
-			else
+				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
+			} else
 				orderList.get(i)
 						.setExecutionQuantity(orderList.get(i).getExecutionQuantity()
 								.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
 										.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_UP)));
+			orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
 		}
-		/*
-		 * for (int i = 0; i < orderList.size(); i++) { if
-		 * (orderList.get(i).getExecutionQuantity() == null){
-		 * orderList.get(i).setExecutionQuantity(
-		 * execution.getExecutionQuantity().multiply(ratioList.get(i)).divide(
-		 * ratioSum));
-		 * orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).
-		 * getExecutionPrice()); } else{
-		 * orderList.get(i).setExecutionQuantity(orderList.get(i).
-		 * getExecutionQuantity()
-		 * .add(execution.getExecutionQuantity().multiply(ratioList.get(i)).
-		 * divide(ratioSum))); } }
-		 */
 	}
 
 	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
@@ -193,18 +187,22 @@ public class OrderbookServiceImpl implements OrderbookService {
 		return orderList.stream().map(x -> x.getQuantiy().toBigInteger().divide(gcd)).collect(Collectors.toList());
 	}
 
-	public void getStatistics1() {
+	public void printFirstStatistics() {
 		List<OrderbookEntity> orderBooks = orderbookRepository.findAll();
 		orderBooks.stream().forEach(record -> {
 			printNumberOfOrdersInEachBook(record);
-			getBiggestAndSmallestOrder(record);
-			getFirstAndLastEntryOfOrder(record);
+			printBiggestAndSmallestOrder(record);
+			printFirstAndLastEntryOfOrder(record);
+			printLimitBreakDown(record);
+			printValidLimitBreakDown(record);
+			printInvalidLimitBreakDown(record);
 		});
-
 	}
 
 	public void printSecondStatistics(long orderId) {
-		OrderEntity order = orderRepository.findById(orderId).get();
+		OrderEntity order = orderRepository.findById(orderId)
+				.orElseThrow(() -> new OrderDoesNotExistForTheGivenOrderIdException(
+						"Order does not exist for the order id " + orderId));
 		if (order.getStatus().equals(OrderStatus.VALID))
 			logger.info("The Order with order id " + orderId + " is a vaild order");
 		else if (order.getStatus().equals(OrderStatus.INVALID))
@@ -213,13 +211,35 @@ public class OrderbookServiceImpl implements OrderbookService {
 			logger.info("The Order with order id " + orderId + "has a limit price of " + order.getPrice());
 		logger.info("The execution quantity for the order with order id " + orderId + " is "
 				+ order.getExecutionQuantity());
-		/*
-		 * logger.info("The execution price for the order with order id " +
-		 * orderId + " is " + order.getExecutionPrice());
-		 */
+		logger.info("The execution price for the order with order id " + orderId + " is " + order.getExecutionPrice());
+
 	}
 
-	private void getFirstAndLastEntryOfOrder(OrderbookEntity record) {
+	private void printInvalidLimitBreakDown(OrderbookEntity record) {
+		Map<BigDecimal, Long> invalidLimitMap = record.getOrders().stream()
+				.filter(x -> x.getStatus().equals(OrderStatus.INVALID))
+				.collect(Collectors.groupingBy(OrderEntity::getPrice, Collectors.counting()));
+		logger.info("Limit Prices break down for invalid orders in orderbook " + record.getInstrument() + " is "
+				+ invalidLimitMap);
+	}
+
+	private void printValidLimitBreakDown(OrderbookEntity record) {
+		Map<BigDecimal, Long> validLimitMap = record.getOrders().stream()
+				.filter(x -> x.getOrderType().equals(OrderType.LIMIT))
+				.filter(x -> x.getStatus().equals(OrderStatus.VALID))
+				.collect(Collectors.groupingBy(OrderEntity::getPrice, Collectors.counting()));
+		logger.info("Limit Prices break down for valid orders in orderbook " + record.getInstrument() + " is "
+				+ validLimitMap);
+	}
+
+	private void printLimitBreakDown(OrderbookEntity record) {
+		Map<BigDecimal, Long> limitMap = record.getOrders().stream()
+				.filter(x -> x.getOrderType().equals(OrderType.LIMIT))
+				.collect(Collectors.groupingBy(OrderEntity::getPrice, Collectors.counting()));
+		logger.info("Limit Prices break down for orders in orderbook " + record.getInstrument() + " is " + limitMap);
+	}
+
+	private void printFirstAndLastEntryOfOrder(OrderbookEntity record) {
 		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getEntryDate().compareTo(o2.getEntryDate()));
@@ -227,7 +247,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 				+ " and the last entry date is " + orders.get(orders.size() - 1));
 	}
 
-	private void getBiggestAndSmallestOrder(OrderbookEntity record) {
+	private void printBiggestAndSmallestOrder(OrderbookEntity record) {
 		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getQuantiy().intValue() - o2.getQuantiy().intValue());
@@ -237,10 +257,32 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	private void printNumberOfOrdersInEachBook(OrderbookEntity record) {
 		String id = record.getInstrument();
-		BigInteger totOrders = BigInteger
-				.valueOf(record.getOrders().stream().mapToInt(x -> x.getQuantiy().intValue()).sum());
-		logger.info("For OrderEntity Book " + id + " number of orders is " + record.getOrders().size());
-		logger.info("For OrderEntity Book " + id + " total demand as accumulated order quantity is " + totOrders);
+		BigDecimal totalDemand = record.getOrders().stream().map(OrderEntity::getQuantiy).reduce(BigDecimal.ZERO,
+				BigDecimal::add);
+		long validOrdersCount = calculateValidOrInvalidCount(record, OrderStatus.VALID);
+		long invalidOrdersCount = calculateValidOrInvalidCount(record, OrderStatus.INVALID);
+		BigDecimal validDemand = calculateValidOrInvalidDemand(record, OrderStatus.VALID);
+		BigDecimal invalidDemand = calculateValidOrInvalidDemand(record, OrderStatus.INVALID);
+		BigDecimal accumulatedExecution = record.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal executionPrice = record.getExecutions().get(0).getExecutionPrice();
+		logger.info("For Order Book " + id + " number of orders is " + record.getOrders().size());
+		logger.info("Number of Valid Orders in Book " + id + " is " + validOrdersCount);
+		logger.info("Number of Invalid Orders in Book " + id + " is " + invalidOrdersCount);
+		logger.info("For Order Book " + id + " total demand as accumulated order quantity is " + totalDemand);
+		logger.info("For Order Book " + id + " valid demands is " + validDemand);
+		logger.info("For Order Book " + id + " invalid demands is " + invalidDemand);
+		logger.info("For Order Book " + id + " accumulated execution quantity is " + accumulatedExecution);
+		logger.info("For Order Book " + id + " accumulated execution price is " + executionPrice);
+	}
+
+	private long calculateValidOrInvalidCount(OrderbookEntity record, OrderStatus orderStatus) {
+		return record.getOrders().stream().filter(x -> x.getStatus().equals(orderStatus)).count();
+	}
+
+	private BigDecimal calculateValidOrInvalidDemand(OrderbookEntity record, OrderStatus orderStatus) {
+		return record.getOrders().stream().filter(x -> x.getStatus().equals(orderStatus)).map(OrderEntity::getQuantiy)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private boolean checkIfOrderbookExists(String id) {

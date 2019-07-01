@@ -17,7 +17,7 @@ import com.cs.Orderbook.utils.OrderStatus;
 import com.cs.Orderbook.utils.OrderType;
 
 @Entity
-public class OrderEntity{
+public class OrderEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private long orderId;
@@ -30,6 +30,7 @@ public class OrderEntity{
 	private OrderType orderType;
 	private OrderStatus status;
 	private BigDecimal executionQuantity;
+	private BigDecimal executionPrice;
 
 	public OrderEntity() {
 		super();
@@ -112,6 +113,14 @@ public class OrderEntity{
 
 	public void setExecutionQuantity(BigDecimal executionQuantity) {
 		this.executionQuantity = executionQuantity;
+	}
+
+	public BigDecimal getExecutionPrice() {
+		return executionPrice;
+	}
+
+	public void setExecutionPrice(BigDecimal executionPrice) {
+		this.executionPrice = executionPrice;
 	}
 
 }
