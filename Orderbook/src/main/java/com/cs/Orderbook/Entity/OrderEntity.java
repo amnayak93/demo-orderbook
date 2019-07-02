@@ -24,19 +24,19 @@ public class OrderEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn
 	private OrderbookEntity orderBook;
-	private BigDecimal quantity;
+	private Long quantity;
 	private LocalDateTime entryDate;
 	private BigDecimal price;
 	private OrderType orderType;
 	private OrderStatus status;
-	private BigDecimal executionQuantity;
+	private Long executionQuantity;
 	private BigDecimal executionPrice;
 
 	public OrderEntity() {
 		super();
 	}
 
-	public OrderEntity(BigDecimal quantity, LocalDateTime entryDate, OrderType orderType, BigDecimal price) {
+	public OrderEntity(Long quantity, LocalDateTime entryDate, OrderType orderType, BigDecimal price) {
 		super();
 		this.quantity = quantity;
 		this.entryDate = entryDate;
@@ -44,7 +44,7 @@ public class OrderEntity {
 		this.price = price;
 	}
 
-	public OrderEntity(BigDecimal quantity, LocalDateTime entryDate, OrderType orderType) {
+	public OrderEntity(Long quantity, LocalDateTime entryDate, OrderType orderType) {
 		super();
 		this.quantity = quantity;
 		this.entryDate = entryDate;
@@ -59,11 +59,11 @@ public class OrderEntity {
 		this.orderId = orderId;
 	}
 
-	public BigDecimal getQuantiy() {
+	public Long getQuantiy() {
 		return quantity;
 	}
 
-	public void setQuantiy(BigDecimal quantiy) {
+	public void setQuantiy(Long quantiy) {
 		this.quantity = quantiy;
 	}
 
@@ -107,11 +107,11 @@ public class OrderEntity {
 		this.status = status;
 	}
 
-	public BigDecimal getExecutionQuantity() {
+	public Long getExecutionQuantity() {
 		return executionQuantity;
 	}
 
-	public void setExecutionQuantity(BigDecimal executionQuantity) {
+	public void setExecutionQuantity(Long executionQuantity) {
 		this.executionQuantity = executionQuantity;
 	}
 

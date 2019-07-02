@@ -121,19 +121,19 @@ public class OrderbookServiceImpl implements OrderbookService {
 		}
 		linearDistributionAmongVaildOrders(orderBook, execution);
 		if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
-				.reduce(BigDecimal.ZERO, BigDecimal::add).longValue() == orderBook.getOrders().stream()
+				.collect(Collectors.summingLong(Long::longValue)).longValue() == orderBook.getOrders().stream()
 						.filter(x -> x.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
-						.reduce(BigDecimal.ZERO, BigDecimal::add).longValue())
+						.collect(Collectors.summingLong(Long::longValue)).longValue())
 			orderBook.setStatus(Status.EXECUTE);
 		return orderbookRepository.save(orderBook);
 	}
 
 	private boolean checkIfExecutionCannotBeAdded(ExecutionEntity execution, OrderbookEntity orderBook) {
-		return execution.getExecutionQuantity().longValue() > orderBook.getOrders().stream()
+		return execution.getExecutionQuantity() > orderBook.getOrders().stream()
 				.filter(record -> record.getStatus().equals(OrderStatus.VALID)).map(OrderEntity::getQuantiy)
-				.reduce(BigDecimal.ZERO, BigDecimal::add).subtract(orderBook.getExecutions().stream()
-						.map(ExecutionEntity::getExecutionQuantity).reduce(BigDecimal.ZERO, BigDecimal::add))
-				.longValue();
+				.collect(Collectors.summingLong(Long::longValue)).longValue()
+				- orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
+						.collect(Collectors.summingLong(Long::longValue)).longValue();
 	}
 
 	private OrderbookEntity determineValidOrders(ExecutionEntity execution, OrderbookEntity orderbookEntity) {
@@ -161,37 +161,39 @@ public class OrderbookServiceImpl implements OrderbookService {
 		BigDecimal distributedExecution = new BigDecimal(0);
 		for (int i = 0; i < orderList.size(); i++) {
 			if (orderList.get(i).getExecutionQuantity() == null) {
-				distributedExecution = distributedExecution
-						.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
-								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
-				orderList.get(i).setExecutionQuantity(
-						execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
-								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
-				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
-			} else {
-				distributedExecution = distributedExecution
-						.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
+				distributedExecution = distributedExecution.add(
+						BigDecimal.valueOf(execution.getExecutionQuantity()).multiply(new BigDecimal(ratioList.get(i)))
 								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
 				orderList.get(i)
-						.setExecutionQuantity(orderList.get(i).getExecutionQuantity()
-								.add(execution.getExecutionQuantity().multiply(new BigDecimal(ratioList.get(i)))
-										.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN)));
+						.setExecutionQuantity(BigDecimal.valueOf(execution.getExecutionQuantity())
+								.multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN).longValue());
+				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
+			} else {
+				distributedExecution = distributedExecution.add(
+						BigDecimal.valueOf(execution.getExecutionQuantity()).multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN));
+				orderList.get(i)
+						.setExecutionQuantity(orderList.get(i).getExecutionQuantity() + BigDecimal
+								.valueOf(execution.getExecutionQuantity()).multiply(new BigDecimal(ratioList.get(i)))
+								.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN).longValue());
 				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
 			}
 		}
 
-		BigDecimal difference = execution.getExecutionQuantity().subtract(distributedExecution).abs();
-		if (distributedExecution.compareTo(execution.getExecutionQuantity()) == 1) {
+		BigDecimal difference = BigDecimal.valueOf(execution.getExecutionQuantity()).subtract(distributedExecution)
+				.abs();
+		if (distributedExecution.compareTo(BigDecimal.valueOf(execution.getExecutionQuantity())) == 1) {
 			int i = 0;
 			while (difference.intValue() != 0) {
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().add(BigDecimal.ONE));
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().longValue() + 1);
 				i++;
 				difference = difference.subtract(BigDecimal.ONE);
 			}
-		} else if (distributedExecution.compareTo(execution.getExecutionQuantity()) == -1) {
+		} else if (distributedExecution.compareTo(BigDecimal.valueOf(execution.getExecutionQuantity())) == -1) {
 			int i = 0;
 			while (difference.intValue() != 0) {
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().subtract(BigDecimal.ONE));
+				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().longValue() - 1);
 				i++;
 				difference = difference.subtract(BigDecimal.ONE);
 			}
@@ -199,15 +201,15 @@ public class OrderbookServiceImpl implements OrderbookService {
 	}
 
 	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
-		BigInteger result = orderList.get(0).getQuantiy().toBigInteger();
+		BigInteger result = BigInteger.valueOf(orderList.get(0).getQuantiy());
 		for (int i = 1; i < orderList.size(); i++) {
-			result = orderList.get(i).getQuantiy().toBigInteger().gcd(result);
+			result = BigInteger.valueOf(orderList.get(i).getQuantiy()).gcd(result);
 		}
 		return result;
 	}
 
 	private List<BigInteger> calculateRatioList(List<OrderEntity> orderList, BigInteger gcd) {
-		return orderList.stream().map(x -> x.getQuantiy().toBigInteger().divide(gcd)).collect(Collectors.toList());
+		return orderList.stream().map(x -> BigInteger.valueOf(x.getQuantiy()).divide(gcd)).collect(Collectors.toList());
 	}
 
 	@Override
@@ -287,14 +289,14 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	private void printNumberOfOrdersInEachBook(OrderbookEntity record) {
 		String id = record.getInstrument();
-		BigDecimal totalDemand = record.getOrders().stream().map(OrderEntity::getQuantiy).reduce(BigDecimal.ZERO,
-				BigDecimal::add);
+		Long totalDemand = record.getOrders().stream().map(OrderEntity::getQuantiy)
+				.collect(Collectors.summingLong(Long::longValue));
 		long validOrdersCount = calculateValidOrInvalidCount(record, OrderStatus.VALID);
 		long invalidOrdersCount = calculateValidOrInvalidCount(record, OrderStatus.INVALID);
-		BigDecimal validDemand = calculateValidOrInvalidDemand(record, OrderStatus.VALID);
-		BigDecimal invalidDemand = calculateValidOrInvalidDemand(record, OrderStatus.INVALID);
-		BigDecimal accumulatedExecution = record.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		Long validDemand = calculateValidOrInvalidDemand(record, OrderStatus.VALID);
+		Long invalidDemand = calculateValidOrInvalidDemand(record, OrderStatus.INVALID);
+		Long accumulatedExecution = record.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
+				.collect(Collectors.summingLong(Long::longValue));
 		BigDecimal executionPrice = record.getExecutions().get(0).getExecutionPrice();
 		logger.info("For Order Book " + id + " number of orders is " + record.getOrders().size());
 		logger.info("Number of Valid Orders in Book " + id + " is " + validOrdersCount);
@@ -310,9 +312,9 @@ public class OrderbookServiceImpl implements OrderbookService {
 		return record.getOrders().stream().filter(x -> x.getStatus().equals(orderStatus)).count();
 	}
 
-	private BigDecimal calculateValidOrInvalidDemand(OrderbookEntity record, OrderStatus orderStatus) {
+	private Long calculateValidOrInvalidDemand(OrderbookEntity record, OrderStatus orderStatus) {
 		return record.getOrders().stream().filter(x -> x.getStatus().equals(orderStatus)).map(OrderEntity::getQuantiy)
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+				.collect(Collectors.summingLong(Long::longValue));
 	}
 
 	private boolean checkIfOrderbookExists(String id) {

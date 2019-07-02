@@ -25,14 +25,14 @@ public class ExecutionEntity {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn
 	private OrderbookEntity orderBook;
-	private BigDecimal executionQuantity;
+	private Long executionQuantity;
 	private BigDecimal executionPrice;
 
 	public ExecutionEntity() {
 		super();
 	}
 
-	public ExecutionEntity(BigDecimal executionQuantity, BigDecimal executionPrice) {
+	public ExecutionEntity(Long executionQuantity, BigDecimal executionPrice) {
 		this.executionQuantity = executionQuantity;
 		this.executionPrice = executionPrice;
 	}
@@ -45,11 +45,11 @@ public class ExecutionEntity {
 		this.orderBook = orderBook;
 	}
 
-	public BigDecimal getExecutionQuantity() {
+	public Long getExecutionQuantity() {
 		return executionQuantity;
 	}
 
-	public void setExecutionQuantity(BigDecimal executionQuantity) {
+	public void setExecutionQuantity(Long executionQuantity) {
 		this.executionQuantity = executionQuantity;
 	}
 
@@ -61,12 +61,13 @@ public class ExecutionEntity {
 		this.executionPrice = executionPrice;
 	}
 
-	@Override
+	/*@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
+		result = prime * result + (int) (executionId ^ (executionId >>> 32));
 		result = prime * result + ((executionPrice == null) ? 0 : executionPrice.hashCode());
-		result = prime * result + ((executionQuantity == null) ? 0 : executionQuantity.hashCode());
+		result = prime * result + (int) (executionQuantity ^ (executionQuantity >>> 32));
 		result = prime * result + ((orderBook == null) ? 0 : orderBook.hashCode());
 		return result;
 	}
@@ -80,15 +81,14 @@ public class ExecutionEntity {
 		if (getClass() != obj.getClass())
 			return false;
 		ExecutionEntity other = (ExecutionEntity) obj;
+		if (executionId != other.executionId)
+			return false;
 		if (executionPrice == null) {
 			if (other.executionPrice != null)
 				return false;
 		} else if (!executionPrice.equals(other.executionPrice))
 			return false;
-		if (executionQuantity == null) {
-			if (other.executionQuantity != null)
-				return false;
-		} else if (!executionQuantity.equals(other.executionQuantity))
+		if (executionQuantity != other.executionQuantity)
 			return false;
 		if (orderBook == null) {
 			if (other.orderBook != null)
@@ -96,6 +96,8 @@ public class ExecutionEntity {
 		} else if (!orderBook.equals(other.orderBook))
 			return false;
 		return true;
-	}
+	}*/
+
+	
 
 }
