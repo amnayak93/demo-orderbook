@@ -58,8 +58,7 @@ public class OrderbookServiceImpl implements OrderbookService {
 
 	@Override
 	public OrderbookEntity closeOrderbook(String id) {
-		OrderbookEntity orderbookEntity = new OrderbookEntity();
-		orderbookRepository.findbyInstrument(id).orElseThrow(
+		OrderbookEntity orderbookEntity = orderbookRepository.findbyInstrument(id).orElseThrow(
 				() -> new OrderbookNotFoundException("There are no orderbooks for financial instrument id " + id));
 		if (!checkIfOrderbookIsOpen(id))
 			throw new OrderbookIsNotOpenException(
@@ -74,13 +73,12 @@ public class OrderbookServiceImpl implements OrderbookService {
 	@Override
 	public OrderbookEntity addOrders(List<OrderEntity> orders, String fid) {
 
-		orderbookRepository.findbyInstrument(fid)
+		OrderbookEntity orderbookEntity = orderbookRepository.findbyInstrument(fid)
 				.orElseThrow(() -> new OrderbookNotFoundException("There are no orderbooks for financial instrument id "
 						+ fid + ". Please open it first before adding orders"));
 		if (!checkIfOrderbookIsOpen(fid))
 			throw new OrderbookIsNotOpenException(
 					"The Orderbook is not opened for instrument id " + fid + " Please open it to add orders");
-		OrderbookEntity orderbookEntity = orderbookRepository.findbyInstrument(fid).get();
 		List<OrderEntity> ordersToBeAdded = orderbookEntity.getOrders();
 		orders.forEach(x -> {
 			if (checkIfMarketOrder(x) && checkIfMarketOrderHasLimitPrice(x))
@@ -100,12 +98,11 @@ public class OrderbookServiceImpl implements OrderbookService {
 	public OrderbookEntity executeOrders(ExecutionEntity execution, String fid) {
 		String instrument = fid;
 		List<ExecutionEntity> executions = new ArrayList<>();
-		orderbookRepository.findbyInstrument(fid).orElseThrow(() -> new OrderbookNotFoundException(
+		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(fid).orElseThrow(() -> new OrderbookNotFoundException(
 				"There are no orderbooks for financial instrument id " + instrument + " cannot add executions"));
 		if (!checkIfOrderbookIsClosed(fid))
 			throw new OrderbookIsNotClosedException(
 					"The orderbook for instrument id " + fid + " is not closed. Executions cannot be added");
-		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(instrument).get();
 		if (orderBook.getExecutions() == null) {
 			orderBook = determineValidOrders(execution, orderBook);
 		} else {
@@ -182,9 +179,6 @@ public class OrderbookServiceImpl implements OrderbookService {
 			}
 		}
 
-		// BigDecimal distributedExecutionQuantity =
-		// orderList.stream().map(OrderEntity::getExecutionQuantity).reduce(BigDecimal.ZERO,
-		// BigDecimal::add);
 		BigDecimal difference = execution.getExecutionQuantity().subtract(distributedExecution).abs();
 		if (distributedExecution.compareTo(execution.getExecutionQuantity()) == 1) {
 			int i = 0;
