@@ -222,12 +222,18 @@ public class OrderbookServiceImpl implements OrderbookService {
 	public void printFirstStatistics() {
 		List<OrderbookEntity> orderBooks = orderbookRepository.findAll();
 		orderBooks.stream().forEach(record -> {
+			logger.info("========================================================Printing statistics for order book "
+					+ record.getInstrument() + " =================================================================");
 			printNumberOfOrdersInEachBook(record);
 			printBiggestAndSmallestOrder(record);
 			printFirstAndLastEntryOfOrder(record);
 			printLimitBreakDown(record);
 			printValidLimitBreakDown(record);
 			printInvalidLimitBreakDown(record);
+			logger.info(
+					"==============================================================End of statistics for Order book "
+							+ record.getInstrument()
+							+ " =================================================================================");
 		});
 	}
 
@@ -281,16 +287,16 @@ public class OrderbookServiceImpl implements OrderbookService {
 		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getEntryDate().compareTo(o2.getEntryDate()));
-		logger.info("First Entry Date for OrderEntity book " + id + " is " + orders.get(0)
-				+ " and the last entry date is " + orders.get(orders.size() - 1));
+		logger.info("First Entry Date for Order book " + id + " is " + orders.get(0).getEntryDate()
+				+ " and the last entry date is " + orders.get(orders.size() - 1).getEntryDate());
 	}
 
 	private void printBiggestAndSmallestOrder(OrderbookEntity record) {
 		String id = record.getInstrument();
 		List<OrderEntity> orders = record.getOrders();
 		orders.sort((OrderEntity o1, OrderEntity o2) -> o1.getQuantiy().intValue() - o2.getQuantiy().intValue());
-		logger.info("Biggest OrderEntity for OrderEntity book " + id + " is : " + orders.get(orders.size() - 1)
-				+ " and smallest order is " + orders.get(0));
+		logger.info("Biggest Order for Order book " + id + " is : " + orders.get(orders.size() - 1).getQuantiy()
+				+ " and smallest order is " + orders.get(0).getQuantiy());
 	}
 
 	private void printNumberOfOrdersInEachBook(OrderbookEntity record) {

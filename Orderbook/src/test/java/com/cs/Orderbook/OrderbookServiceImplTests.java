@@ -368,4 +368,35 @@ public class OrderbookServiceImplTests {
 		assertNotNull(order);
 	}
 
+	@Test
+	public void testForPrintStatistics1() {
+		List<OrderEntity> orders = new ArrayList<>();
+		List<ExecutionEntity> executions = new ArrayList<>();
+		orderbook = new OrderbookEntity("Fi1", Status.CLOSE);
+		execution = new ExecutionEntity(Long.valueOf(15), BigDecimal.valueOf(90));
+		execution3 = new ExecutionEntity(Long.valueOf(35), BigDecimal.valueOf(90));
+		executions.add(execution);
+		executions.add(execution3);
+		orders.add(new OrderEntity(Long.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(Long.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(110)));
+		orders.add(new OrderEntity(Long.valueOf(30), today, OrderType.LIMIT, BigDecimal.valueOf(120)));
+		orders.add(new OrderEntity(Long.valueOf(10), today, OrderType.LIMIT, BigDecimal.valueOf(100)));
+		orders.add(new OrderEntity(Long.valueOf(90), today, OrderType.LIMIT, BigDecimal.valueOf(110)));
+		orders.add(new OrderEntity(Long.valueOf(20), today, OrderType.MARKET));
+		orders.add(new OrderEntity(Long.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(Long.valueOf(30), today, OrderType.LIMIT, BigDecimal.valueOf(80)));
+		orders.add(new OrderEntity(Long.valueOf(20), today, OrderType.LIMIT, BigDecimal.valueOf(70)));
+		orders.add(new OrderEntity(Long.valueOf(5), today, OrderType.LIMIT, BigDecimal.valueOf(60)));
+		orderbook.setOrders(orders);
+		orderbook.setExecutions(executions);
+		orders.stream().limit(6).forEach(record -> record.setStatus(OrderStatus.VALID));
+		orders.stream().skip(6).forEach(record -> record.setStatus(OrderStatus.INVALID));
+		orders.stream().limit(2).forEach(record -> record.setEntryDate(LocalDateTime.now()));
+		orders.stream().limit(4).forEach(record -> record.setEntryDate(LocalDateTime.now().minusDays(1)));
+		orders.stream().limit(4).forEach(record -> record.setEntryDate(LocalDateTime.now().minusDays(2)));
+		orderbook.setExecutions(executions);
+		orderbookRepository.save(orderbook);
+		orderbookService.printFirstStatistics();
+	}
+
 }
