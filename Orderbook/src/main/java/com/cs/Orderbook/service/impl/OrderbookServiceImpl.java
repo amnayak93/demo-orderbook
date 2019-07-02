@@ -172,27 +172,16 @@ public class OrderbookServiceImpl implements OrderbookService {
 				executionToBeDistributed = BigDecimal.valueOf(execution.getExecutionQuantity())
 						.multiply(new BigDecimal(ratioList.get(i)))
 						.divide(new BigDecimal(ratioSum), 0, RoundingMode.HALF_DOWN);
-				if (orderList.get(i).getExecutionQuantity().longValue()
-						+ executionToBeDistributed.longValue() > orderList.get(i).getQuantiy().longValue()) {
-					Long extraExecution = orderList.get(i).getExecutionQuantity().longValue()
-							+ executionToBeDistributed.longValue() - orderList.get(i).getQuantiy().longValue();
-					Long executionToBeDistributed2 = executionToBeDistributed.longValue() - extraExecution;
-					roundOfTotalDistributedExecution = roundOfTotalDistributedExecution
-							.add(BigDecimal.valueOf(executionToBeDistributed2));
-					orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().longValue()
-							+ executionToBeDistributed2.longValue());
-					orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
-				} else {
-					roundOfTotalDistributedExecution = roundOfTotalDistributedExecution.add(executionToBeDistributed);
-					orderList.get(i).setExecutionQuantity(
-							orderList.get(i).getExecutionQuantity().longValue() + executionToBeDistributed.longValue());
-					orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
-				}
+				roundOfTotalDistributedExecution = roundOfTotalDistributedExecution.add(executionToBeDistributed);
+				orderList.get(i).setExecutionQuantity(
+						orderList.get(i).getExecutionQuantity().longValue() + executionToBeDistributed.longValue());
+				orderList.get(i).setExecutionPrice(orderBook.getExecutions().get(0).getExecutionPrice());
 			}
 		}
 
 		BigDecimal difference = BigDecimal.valueOf(execution.getExecutionQuantity())
 				.subtract(roundOfTotalDistributedExecution).abs();
+
 		if (roundOfTotalDistributedExecution.compareTo(BigDecimal.valueOf(execution.getExecutionQuantity())) == 1) {
 			int i = 0;
 			while (difference.intValue() != 0) {
@@ -204,11 +193,17 @@ public class OrderbookServiceImpl implements OrderbookService {
 				.compareTo(BigDecimal.valueOf(execution.getExecutionQuantity())) == -1) {
 			int i = 0;
 			while (difference.intValue() != 0) {
-				orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().longValue() + 1);
+				if (!checkIfExecutionIsFulfilled(orderList, i)) {
+					orderList.get(i).setExecutionQuantity(orderList.get(i).getExecutionQuantity().longValue() + 1);
+					difference = difference.subtract(BigDecimal.ONE);
+				}
 				i++;
-				difference = difference.subtract(BigDecimal.ONE);
 			}
 		}
+	}
+
+	private boolean checkIfExecutionIsFulfilled(List<OrderEntity> orderList, int i) {
+		return orderList.get(i).getExecutionQuantity().longValue() >= orderList.get(i).getQuantiy();
 	}
 
 	private BigInteger findGcdOfOrderQuantities(List<OrderEntity> orderList) {
