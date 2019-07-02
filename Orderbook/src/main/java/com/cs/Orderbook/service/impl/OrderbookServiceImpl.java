@@ -98,14 +98,13 @@ public class OrderbookServiceImpl implements OrderbookService {
 	public OrderbookEntity executeOrders(ExecutionEntity execution, String fid) {
 		String instrument = fid;
 		List<ExecutionEntity> executions = new ArrayList<>();
-		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(fid).orElseThrow(() -> new OrderbookNotFoundException(
-				"There are no orderbooks for financial instrument id " + instrument + " cannot add executions"));
+		OrderbookEntity orderBook = orderbookRepository.findbyInstrument(fid)
+				.orElseThrow(() -> new OrderbookNotFoundException("There are no orderbooks for financial instrument id "
+						+ instrument + " cannot add executions"));
 		if (!checkIfOrderbookIsClosed(fid))
 			throw new OrderbookIsNotClosedException(
 					"The orderbook for instrument id " + fid + " is not closed. Executions cannot be added");
-		if (orderBook.getExecutions() == null) {
-			orderBook = determineValidOrders(execution, orderBook);
-		} else {
+		if (orderBook.getExecutions() != null && !orderBook.getExecutions().isEmpty()) {
 			executions = orderBook.getExecutions();
 			if (execution.getExecutionPrice().compareTo(orderBook.getExecutions().get(0).getExecutionPrice()) != 0)
 				throw new ExecutionPriceShouldNotChangeException(
@@ -117,6 +116,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 								+ instrument);
 			executions.add(execution);
 			orderBook.setExecutions(executions);
+		} else {
+			orderBook = determineValidOrders(execution, orderBook);
 		}
 		linearDistributionAmongVaildOrders(orderBook, execution);
 		if (orderBook.getExecutions().stream().map(ExecutionEntity::getExecutionQuantity)
@@ -227,7 +228,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 		OrderEntity order = orderRepository.findById(orderId)
 				.orElseThrow(() -> new OrderDoesNotExistForTheGivenOrderIdException(
 						"Order does not exist for the order id " + orderId));
-		logger.info("===============================================================Printing Statistics2 for Order ==============================================================================================");
+		logger.info(
+				"===============================================================Printing Statistics2 for Order ==============================================================================================");
 		if (order.getStatus().equals(OrderStatus.VALID))
 			logger.info("The Order with order id " + orderId + " is a vaild order");
 		else if (order.getStatus().equals(OrderStatus.INVALID))
@@ -237,7 +239,8 @@ public class OrderbookServiceImpl implements OrderbookService {
 		logger.info("The execution quantity for the order with order id " + orderId + " is "
 				+ order.getExecutionQuantity());
 		logger.info("The execution price for the order with order id " + orderId + " is " + order.getExecutionPrice());
-		logger.info("=============================================================End of Statistics2 for Order =================================================================================");
+		logger.info(
+				"=============================================================End of Statistics2 for Order =================================================================================");
 		return order;
 
 	}
