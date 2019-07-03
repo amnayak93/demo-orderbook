@@ -61,43 +61,4 @@ public class ExecutionEntity {
 		this.executionPrice = executionPrice;
 	}
 
-	/*@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + (int) (executionId ^ (executionId >>> 32));
-		result = prime * result + ((executionPrice == null) ? 0 : executionPrice.hashCode());
-		result = prime * result + (int) (executionQuantity ^ (executionQuantity >>> 32));
-		result = prime * result + ((orderBook == null) ? 0 : orderBook.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		ExecutionEntity other = (ExecutionEntity) obj;
-		if (executionId != other.executionId)
-			return false;
-		if (executionPrice == null) {
-			if (other.executionPrice != null)
-				return false;
-		} else if (!executionPrice.equals(other.executionPrice))
-			return false;
-		if (executionQuantity != other.executionQuantity)
-			return false;
-		if (orderBook == null) {
-			if (other.orderBook != null)
-				return false;
-		} else if (!orderBook.equals(other.orderBook))
-			return false;
-		return true;
-	}*/
-
-	
-
 }
